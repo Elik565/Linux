@@ -1,0 +1,12 @@
+#!/bin/sh
+
+echo "It is morning? Please answer yes or no "
+read timeofday
+
+case "$timeofday" in
+    yes | y | Yes | YES ) echo "Good morning";;
+    no | n | No | NO ) echo "Good afternoon";;
+    * ) echo "Sorry, answer not recognized";;
+esac 
+
+exit 0

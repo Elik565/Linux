@@ -5,9 +5,11 @@
 
 #define MAX_SIZE_PATH 128
 
-struct archiver
+struct Archiver
 {
-    char path[MAX_SIZE_PATH];  // путь до архивируемого каталога
+    char dir_path[MAX_SIZE_PATH];  // путь до архивируемого каталога
+
+    char archiv_path[MAX_SIZE_PATH];  // путь до архива
 
     DIR* dirp;  // указатель на каталог 
 
@@ -15,7 +17,7 @@ struct archiver
 };
 
 struct file_info {
-        char path[MAX_SIZE_PATH];
+        char file_path[MAX_SIZE_PATH];
 
         size_t size;
 };
@@ -23,9 +25,11 @@ struct file_info {
 ///// ПРОТОТИПЫ ФУНКЦИЙ /////
 
 // Выбор каталога для архивирования
-void choose_catalog(struct archiver* arch);
+void choose_catalog(struct Archiver* arch);
 
-void find_folder_name(struct archiver* arch);
+void find_folder_name(struct Archiver* arch);
+
+void choose_arch_path(struct Archiver* arch);
 
 void dir_passage(char* dir);
 

@@ -20,6 +20,26 @@ void choose_catalog(struct archiver* arch) {
     }
 }
 
+void find_folder_name(struct archiver* arch) {
+    size_t path_size = strlen(arch->path) - 1;
+    if (arch->path[path_size] == '/') {  // проверяем есть ли в конце '/'
+        path_size--;
+    }
+    
+    size_t i = path_size;
+    size_t len_name = 0;
+    while (arch->path[i] != '/') {
+        len_name++;
+        i--;
+    }
+    
+    size_t j = 0;
+    for (int i = len_name - 1; i >= 0; i--) {
+        arch->folder_name[j] = arch->path[path_size - i];
+        j++;
+    }
+}
+
 void dir_passage(char* dir) {
     DIR* dirptr;
     struct dirent* entry;
@@ -32,7 +52,7 @@ void dir_passage(char* dir) {
 
     chdir(dir);  // меняет текущий каталог на переданный в функцию
     while ((entry = readdir(dirptr)) != NULL) {  // пока в каталоге есть файлы или директории
-        lstat (entry->d_name, &statbuf);
+        lstat (entry->d_name, &statbuf);  // получаем информацию о файле или директории
 
         if (S_ISDIR(statbuf.st_mode)) {  // если это директория
             if (strcmp(".", entry->d_name) == 0 ||  // пропускаем текущую и родительскую директории
@@ -41,11 +61,10 @@ void dir_passage(char* dir) {
                 continue;
             }
 
-            printf("%s/\n", entry->d_name);
             dir_passage(entry->d_name);  // рекурсивный вызов 
         }
         else {
-            printf("%s\n", entry->d_name);
+            struct file_info info;
         }
     }
 

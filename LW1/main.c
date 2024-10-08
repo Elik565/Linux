@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "archiver.h"
 #include <dirent.h>
+#include <string.h>
 
 
 int main() {
@@ -13,6 +14,9 @@ int main() {
     if (arch.dirp == NULL) {
         return 1;
     }
+
+    // нахождение имени папки
+    find_folder_name(&arch);
 
     dir_passage(arch.path);
     

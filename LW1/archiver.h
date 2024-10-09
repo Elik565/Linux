@@ -22,6 +22,8 @@ struct Archiver
 struct file_info {
         char path[MAX_SIZE_PATH];
 
+        char real_path[MAX_SIZE_PATH];
+
         size_t size;
 };
 

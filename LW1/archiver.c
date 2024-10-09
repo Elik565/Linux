@@ -67,6 +67,13 @@ void choose_arch_path(struct Archiver* arch) {
 void add_to_archive(const struct file_info* info, struct Archiver* arch) {
     fprintf(arch->arch_file, "File path: %s, ", info->path);
     fprintf(arch->arch_file, "size: %d\n\n", info->size);
+
+    
+    FILE* fin = fopen(info->real_path, "rb");
+    if (fin == NULL) {
+        fprintf(stderr, "Ошибка открытия файла %s для архивации!\n", info->real_path);
+        return;
+    }
 }
 
 void dir_passage(char* dir, char* current_path, struct Archiver* arch) {
@@ -111,10 +118,14 @@ void dir_passage(char* dir, char* current_path, struct Archiver* arch) {
 
             info.size = statbuf.st_size;  // размер файла
 
-            // путь к файлу
+            // относительный путь к файлу
             info.path[0] = '\0';
             strcat(info.path, current_path);
             strcat(info.path, entry->d_name);
+
+            // реальный путь к файлу
+            info.real_path[0] = '\0';
+            strcat(info.real_path, realpath(entry->d_name, NULL));
             
             add_to_archive(&info, arch);  // добавляем информацию о файле в архив
         }

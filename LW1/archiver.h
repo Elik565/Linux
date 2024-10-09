@@ -2,6 +2,7 @@
 
 #include <dirent.h>
 #include <sys/stat.h>
+#include <stdio.h>
 
 #define MAX_SIZE_PATH 128
 
@@ -11,13 +12,15 @@ struct Archiver
 
     char archiv_path[MAX_SIZE_PATH];  // путь до архива
 
-    DIR* dirp;  // указатель на каталог 
+    DIR* dirptr;  // указатель на каталог 
 
     char folder_name[MAX_SIZE_PATH];  // имя папки
+
+    FILE* arch_file;  // архивный файл
 };
 
 struct file_info {
-        char file_path[MAX_SIZE_PATH];
+        char path[MAX_SIZE_PATH];
 
         size_t size;
 };
@@ -31,5 +34,7 @@ void find_folder_name(struct Archiver* arch);
 
 void choose_arch_path(struct Archiver* arch);
 
-void dir_passage(char* dir);
+void add_to_archive(const struct file_info* info, struct Archiver* arch);
+
+void dir_passage(char* dir, char* current_path, struct Archiver* arch);
 

@@ -6,7 +6,7 @@
 
 
 void choose_catalog(struct Archiver* arch) {
-    while (arch->dirp == NULL) {
+    while (arch->dirptr == NULL) {
         printf("Введите путь до папки, которую хотите заархивировать: ");
         scanf("%s", arch->dir_path);
 
@@ -15,8 +15,8 @@ void choose_catalog(struct Archiver* arch) {
             return;
         }
 
-        arch->dirp = opendir(arch->dir_path);
-        if (!arch->dirp) {
+        arch->dirptr = opendir(arch->dir_path);
+        if (!arch->dirptr) {
             printf("Каталог не найден!\n");
         }
     }
@@ -52,7 +52,7 @@ void choose_arch_path(struct Archiver* arch) {
         }
 
     if (strlen(arch->archiv_path) + 1 >= MAX_SIZE_PATH) {
-        fprintf(stderr, "путь слишком длинный!\n");
+        fprintf(stderr, "Путь слишком длинный!\n");
         return;
     }
 
@@ -64,13 +64,26 @@ void choose_arch_path(struct Archiver* arch) {
     strcat(arch->archiv_path, ".dat");
 }
 
-void dir_passage(char* dir) {
+void add_to_archive(const struct file_info* info, struct Archiver* arch) {
+    fprintf(arch->arch_file, "File path: %s, ", info->path);
+    fprintf(arch->arch_file, "size: %d\n\n", info->size);
+}
+
+void dir_passage(char* dir, char* current_path, struct Archiver* arch) {
     DIR* dirptr;
     struct dirent* entry; 
     struct stat statbuf;
 
+    size_t cur_path_len = strlen(current_path);  // длина текущего пути
+
+    arch->arch_file = fopen(arch->archiv_path, "wb");  // открываем архивный файл
+    if (arch->arch_file == NULL) {
+        fprintf(stderr, "Ошибка открытия архива для записи!\n");
+        return;
+    }
+
     if ((dirptr = opendir(dir)) == NULL) {
-        fprintf(stderr, "не получается открыть директорию: %s\n", dir);
+        fprintf(stderr, "Не получается открыть директорию: %s\n", dir);
         return;
     }
 
@@ -85,10 +98,25 @@ void dir_passage(char* dir) {
                 continue;
             }
 
-            dir_passage(entry->d_name);  // рекурсивный вызов 
+            // добавляем к текущему пути текущую директорию
+            strcat(current_path, entry->d_name);
+            strcat(current_path, "/");
+
+            dir_passage(entry->d_name, current_path, arch);  // рекурсивный вызов 
+
+            current_path[cur_path_len] = '\0';  // восстанавливаем текущий путь после рекурсии
         }
         else {
             struct file_info info;
+
+            info.size = statbuf.st_size;  // размер файла
+
+            // путь к файлу
+            info.path[0] = '\0';
+            strcat(info.path, current_path);
+            strcat(info.path, entry->d_name);
+            
+            add_to_archive(&info, arch);  // добавляем информацию о файле в архив
         }
     }
 

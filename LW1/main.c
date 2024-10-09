@@ -7,11 +7,11 @@
 int main() {
     // Создание структуры архиватора
     struct Archiver arch;
-    arch.dirp = NULL;
+    arch.dirptr = NULL;
     
     // Выбор каталога для архивирования
     choose_catalog(&arch);
-    if (arch.dirp == NULL) {
+    if (arch.dirptr == NULL) {
         return 1;
     }
 
@@ -20,12 +20,13 @@ int main() {
 
     // Выбор пути, по которому создастся архив
     choose_arch_path(&arch);
-    
-    FILE* arhive = fopen(arch.archiv_path, "wb");
 
-    dir_passage(arch.dir_path);
-    
+    // создание текущего пути для записи обхода директории
+    char current_path[MAX_SIZE_PATH];
+    current_path[0] = '\0';
+    strcat(current_path, "./");
 
+    dir_passage(arch.dir_path, current_path, &arch);  // обход директории
 
     return 0;
 }

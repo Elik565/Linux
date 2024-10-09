@@ -8,6 +8,8 @@ int main() {
     // Создание структуры архиватора
     struct Archiver arch;
     arch.dirptr = NULL;
+    arch.files = NULL;
+    arch.files_count = 0;
     
     // Выбор каталога для архивирования
     choose_catalog(&arch);
@@ -26,7 +28,7 @@ int main() {
     current_path[0] = '\0';
     strcat(current_path, "./");
 
-    dir_passage(arch.dir_path, current_path, &arch);  // обход директории
+    collect_files_info(arch.dir_path, current_path, &arch);  // обход директории
 
     return 0;
 }

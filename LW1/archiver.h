@@ -20,18 +20,23 @@ struct Archiver
     struct file_info* files;  // информация о файлах директории
 
     size_t files_count;  // количество файлов в директории
+
+    char extract_path[MAX_SIZE_PATH];  // путь для извлечения
+
+    int exit;  // на случай выхода
 };
 
 // Структура информации о файле
 struct file_info {
-        char path[MAX_SIZE_PATH];
+        char path[MAX_SIZE_PATH];  // относительный путь 
 
-        char real_path[MAX_SIZE_PATH];
+        char real_path[MAX_SIZE_PATH];  // абсолютный путь
 
-        size_t size;
+        size_t size;  // размер файла
 };
 
-///// ПРОТОТИПЫ ФУНКЦИЙ /////
+
+///// ПРОТОТИПЫ ФУНКЦИЙ ДЛЯ АРХИВИРОВАНИЯ /////
 
 // Выбор каталога для архивирования
 void choose_catalog(struct Archiver* arch);
@@ -53,6 +58,12 @@ void add_data_to_archive(struct Archiver* arch);
 
 // Архивирование директории
 void archive();
+
+
+///// ПРОТОТИПЫ ФУНКЦИЙ ДЛЯ РАЗАРХИВИРОВАНИЯ /////
+
+// Выбор пути разархивирования
+void choose_extract_path(struct Archiver* arch);
 
 // Разархивирование директории
 void unzip();

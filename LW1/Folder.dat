@@ -1,3 +1,7 @@
+*****Header*****
+
+The number of files in the archive: 5
+
 Path: ./Folder1/file1.txt, size: 5
 
 Path: ./file3.c, size: 0
@@ -7,6 +11,9 @@ Path: ./file4.rm, size: 0
 Path: ./file2.txt, size: 4
 
 Path: ./file1, size: 0
+
+
+*****Files data*****
 
 Hello
 

@@ -5,30 +5,7 @@
 
 
 int main() {
-    // Создание структуры архиватора
-    struct Archiver arch;
-    arch.dirptr = NULL;
-    arch.files = NULL;
-    arch.files_count = 0;
-    
-    // Выбор каталога для архивирования
-    choose_catalog(&arch);
-    if (arch.dirptr == NULL) {
-        return 1;
-    }
-
-    // Нахождение имени папки
-    find_folder_name(&arch);
-
-    // Выбор пути, по которому создастся архив
-    choose_arch_path(&arch);
-
-    // создание текущего пути для записи обхода директории
-    char current_path[MAX_SIZE_PATH];
-    current_path[0] = '\0';
-    strcat(current_path, "./");
-
-    collect_files_info(arch.dir_path, current_path, &arch);  // обход директории
+    archive();
 
     return 0;
 }

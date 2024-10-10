@@ -13,8 +13,6 @@ struct Archiver
 
     char archiv_path[MAX_SIZE_PATH];  // путь до архива
 
-    DIR* dirptr;  // указатель на каталог 
-
     char folder_name[MAX_SIZE_PATH];  // имя папки
 
     FILE* arch_file;  // архивный файл
@@ -44,14 +42,17 @@ void find_folder_name(struct Archiver* arch);
 // Выбор пути сохранения архива
 void choose_arch_path(struct Archiver* arch);
 
-// 
-void add_to_archive(struct Archiver* arch);
-
 // Сбор информации о файлах
 void collect_files_info(const char* dir, char* current_path, struct Archiver* arch);
 
+// Запись заголовка в архив
+void add_header_to_archive(struct Archiver* arch);
+
+// Запись данных в архив
+void add_data_to_archive(struct Archiver* arch);
+
 // Архивирование директории
-void archive(struct Archiver* arch);
+void archive();
 
 // Разархивирование директории
 void unzip();

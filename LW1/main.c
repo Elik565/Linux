@@ -5,7 +5,7 @@
 
 
 int main() {
-    printf("АРХИВАТОР\n\n");
+    printf("*****АРХИВАТОР*****\n\n");
 
     while (1) {
         printf("Для архивации директории нажмите '1';\n");
@@ -28,13 +28,11 @@ int main() {
         }
 
         if (strcmp(choise, "2") == 0) {  // если ввели 2
-
+            extract();
         }
 
         choise[0] = '\0';
     }
-    
-
     
     return 0;
 }

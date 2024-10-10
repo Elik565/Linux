@@ -4,11 +4,11 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-void choose_catalog(struct Archiver* arch) {
+void choose_dir(struct Archive* arch) {
     DIR* dir_ptr = NULL;
 
     while (dir_ptr == NULL) {
-        printf("Введите путь до папки, которую хотите заархивировать: ");
+        printf("Введите путь до директории, которую хотите заархивировать: ");
         scanf("%s", arch->dir_path);
 
         if (strcmp(arch->dir_path, "q") == 0) {  // если нажали 'q', то выходим из программы
@@ -23,13 +23,14 @@ void choose_catalog(struct Archiver* arch) {
 
         dir_ptr = opendir(arch->dir_path);
         if (!dir_ptr) {
-            printf("Каталог не найден!\n");
-            dir_ptr = NULL;
+            printf("Директория не найдена!\n");
         }
     }
+
+    closedir(dir_ptr);
 }
 
-void find_folder_name(struct Archiver* arch) {
+void find_folder_name(struct Archive* arch) {
     size_t path_size = strlen(arch->dir_path) - 1;
     if (arch->dir_path[path_size] == '/') {  // проверяем есть ли в конце '/'
         path_size--;
@@ -49,11 +50,11 @@ void find_folder_name(struct Archiver* arch) {
     }
 }
 
-void choose_arch_path(struct Archiver* arch) {
+void choose_arch_path(struct Archive* arch) {
     int OK = 0;
 
     while (OK != 1) {
-        printf("Введите путь, где сохранить архив: ");
+        printf("Введите путь до директории, где сохранить архив: ");
         scanf("%s", arch->archiv_path);
 
         if (strcmp(arch->archiv_path, "q") == 0) {  // если нажали 'q', то выходим из программы
@@ -70,6 +71,16 @@ void choose_arch_path(struct Archiver* arch) {
         }
     }
 
+    // создаем директорию, если пользователь ввел несуществующую
+    DIR* dir_ptr = opendir(arch->archiv_path);
+    if (dir_ptr == NULL) {
+        if (mkdir(arch->archiv_path, 0755) == -1) {
+            fprintf(stderr, "Не удалось создать архив по пути %s\n\n", arch->archiv_path);
+            arch->exit = 1;
+            return;
+        }
+    }
+
     if (arch->archiv_path[strlen(arch->archiv_path)] != '/') {  // если на конце нет '/'
         strcat(arch->archiv_path, "/");  // добавляем '/' 
     }
@@ -78,7 +89,7 @@ void choose_arch_path(struct Archiver* arch) {
     strcat(arch->archiv_path, ".dat");
 }
 
-void collect_files_info(const char* dir, char* current_path, struct Archiver* arch) {
+void collect_files_info(const char* dir, char* current_path, struct Archive* arch) {
     DIR* dirptr;
     struct dirent* entry; 
     struct stat statbuf;
@@ -111,13 +122,8 @@ void collect_files_info(const char* dir, char* current_path, struct Archiver* ar
         }
         else {
             // выделяем память под новый файл
-            struct file_info* temp = realloc(arch->files, (arch->files_count + 1) * sizeof(struct file_info));
-            if (temp == NULL) {
-                fprintf(stderr, "Ошибка выделения памяти!\n");
-                return;
-            }
-            arch->files = temp;
-
+            arch->files = realloc(arch->files, (arch->files_count + 1) * sizeof(struct file_info));
+    
             arch->files[arch->files_count].size = statbuf.st_size;  // размер файла
 
             // относительный путь к файлу
@@ -137,8 +143,8 @@ void collect_files_info(const char* dir, char* current_path, struct Archiver* ar
     closedir(dirptr);  // закрываем директорию
 }
 
-void add_header_to_archive(struct Archiver* arch) {
-    arch->arch_file = fopen(arch->archiv_path, "wb");  // открываем архивный файл
+void add_header_to_archive(struct Archive* arch) {
+    arch->arch_file = fopen(arch->archiv_path, "wb");  // оставляем открытым файл для записи
 
     if (arch->arch_file == NULL) {
         fprintf(stderr, "Ошибка открытия архива для записи!\n");
@@ -153,7 +159,7 @@ void add_header_to_archive(struct Archiver* arch) {
     fprintf(arch->arch_file, "\n*****Files data*****\n\n");
 }
 
-void add_data_to_archive(struct Archiver* arch) {
+void add_data_to_archive(struct Archive* arch) {
     for (size_t i = 0; i < arch->files_count; i++) {
         FILE* fin = fopen(arch->files[i].real_path, "rb");
 
@@ -178,18 +184,20 @@ void add_data_to_archive(struct Archiver* arch) {
 }
 
 void archive() {
-    // Создание структуры архиватора
-    struct Archiver arch;
+    // Создание структуры архивации
+    struct Archive arch;
     arch.files = NULL;
     arch.files_count = 0;
     arch.exit = 0;
+    arch.archiv_path[0] = '\0';
+    arch.dir_path[0] = '\0';
     
     // создание текущего пути для записи обхода директории
     char current_path[MAX_SIZE_PATH];
     current_path[0] = '\0';
     strcat(current_path, "./");
 
-    choose_catalog(&arch);  // выбор каталога для архивирования
+    choose_dir(&arch);  // выбор каталога для архивирования
 
     if (arch.exit == 1) {
         return;
@@ -214,20 +222,77 @@ void archive() {
 
 
 
-void choose_extract_path(struct Archiver* arch) {
-    int OK = 0;
 
-    while (OK != 1) {
-        printf("Введите путь, куда разархивировать архив: ");
-        scanf("%s", arch->extract_path);
+void choose_file_path(struct Extract* extr) {
+    extr->arch_file = NULL;
 
-        if (strcmp(arch->extract_path, "q") == 0) {  // если нажали 'q', то выходим из программы
-            printf("Программа завершена пользователем\n\n");
-            arch->exit = 1;
+    while (extr->arch_file == NULL) {
+        printf("Введите путь до архива: ");
+        scanf("%s",  extr->archiv_path);
+
+        if (strcmp(extr->archiv_path, "q") == 0) {  // если нажали 'q', то выходим из программы
+            printf("Разархивация завершена пользователем\n\n");
+            extr->exit = 1;
             return;
         }
 
-        if (strlen(arch->extract_path) + 2 >= MAX_SIZE_PATH) {
+        if (strlen(extr->archiv_path) + 1 >= MAX_SIZE_PATH) {
+            fprintf(stderr, "Путь слишком длинный!\n");
+        }
+        
+        extr->arch_file = fopen(extr->archiv_path, "rb");  // оставляем файл открытым для чтения
+
+        struct stat statbuf;
+        lstat (extr->archiv_path, &statbuf);
+
+        if (S_ISDIR(statbuf.st_mode)) {
+            extr->arch_file = NULL;
+        }
+
+        if (extr->arch_file == NULL) {
+            printf("Файл не найден!\n");
+        }
+    }
+}
+
+void find_arch_name(struct Extract* extr) {
+    size_t path_size = strlen(extr->archiv_path) - 1;
+    
+    size_t i = path_size;
+    size_t len_format = 0;
+    while (extr->archiv_path[i] != '.') {  // находим длину формата архива (на случай содержания в имени точек)
+        len_format++;
+        i--;
+    }
+    
+    size_t len_name = 0;
+    i = path_size - len_format - 1;  // учитываем точку
+    while (extr->archiv_path[i] != '/') {  // находим размер названия архива
+        len_name++;
+        i--;
+    }
+
+    size_t j = 0;
+    for (int i = len_name + len_format; i > len_format; i--) {  // записываем название архива в переменную
+        extr->arch_name[j] = extr->archiv_path[path_size - i];
+        j++;
+    }
+}
+
+void choose_extract_path(struct Extract* extr) {
+    int OK = 0;
+
+    while (OK != 1) {
+        printf("Введите путь, куда разархивировать файл: ");
+        scanf("%s", extr->extract_path);
+
+        if (strcmp(extr->extract_path, "q") == 0) {  // если нажали 'q', то выходим из программы
+            printf("Разархивация завершена пользователем\n\n");
+            extr->exit = 1;
+            return;
+        }
+
+        if (strlen(extr->extract_path) + 2 >= MAX_SIZE_PATH) {
             fprintf(stderr, "Путь слишком длинный!\n");
         }
         else {
@@ -235,9 +300,40 @@ void choose_extract_path(struct Archiver* arch) {
         }
     }
 
-    if (arch->extract_path[strlen(arch->archiv_path)] != '/') {  // если на конце нет '/'
-        strcat(arch->archiv_path, "/");  // добавляем '/' 
+    if (extr->extract_path[strlen(extr->extract_path) - 1] != '/') {  // если на конце нет '/'
+        strcat(extr->extract_path, "/");  // добавляем '/' 
     }
 
-    strcat(arch->extract_path, arch->folder_name);
+    // создаем директорию, если пользователь ввел несуществующую
+    DIR* dir_ptr = opendir(extr->extract_path);
+    if (dir_ptr == NULL) {
+        if (mkdir(extr->extract_path, 0755) == -1) {
+            fprintf(stderr, "Не удалось создать архив по пути %s\n\n", extr->extract_path);
+            extr->exit = 1;
+            return;
+        }
+    }
+
+    strcat(extr->extract_path, extr->arch_name);
+    printf("%s\n", extr->extract_path);
 }
+
+void extract() {
+    // Создание структуры разархивации
+    struct Extract extr;  
+    extr.exit = 0;
+    extr.archiv_path[0] = '\0';
+    extr.extract_path[0] = '\0';
+
+    choose_file_path(&extr);
+    if (extr.exit == 1) {
+        return;
+    }
+
+    find_arch_name(&extr);
+    
+    choose_extract_path(&extr);
+    if (extr.exit == 1) {
+        return;
+    }
+} 

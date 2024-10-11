@@ -1,27 +1,26 @@
 *****Header*****
 
-The number of files in the archive: 5
+The number of files in the archive: 6
 
-Path: ./Folder1/file1.txt, size: 5
-
-Path: ./file3.c, size: 0
-
-Path: ./file4.rm, size: 0
-
-Path: ./file2.txt, size: 4
-
-Path: ./file1, size: 0
-
+Path: Folder1/file1.txt size: 36
+Path: Folder1/Folder2/file1 size: 32
+Path: file3.c size: 15
+Path: file4.rm size: 16
+Path: file2.txt size: 25
+Path: file1 size: 13
 
 *****Files data*****
 
-Hello
+Data of file1.txt in Folder1
+
+
+Line
+Data of file1 in Folder2
 
 
 
+LineData of file3.cData of file4.rmData of file2.txt
 
 
-abcd
-
-
-
+Line
+Data of file1

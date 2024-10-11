@@ -154,7 +154,7 @@ void add_header_to_archive(struct Archive* arch) {
     fprintf(arch->arch_file, "*****Header*****\n\n");
     fprintf(arch->arch_file, "The number of files in the archive: %d\n\n", arch->files_count);
     for (size_t i = 0; i < arch->files_count; i++) {
-        fprintf(arch->arch_file, "Path: %s, size: %d\n\n", arch->files[i].path, arch->files[i].size);
+        fprintf(arch->arch_file, "Path: %s size: %d\n", arch->files[i].path, arch->files[i].size);
     }
     fprintf(arch->arch_file, "\n*****Files data*****\n\n");
 }
@@ -171,10 +171,8 @@ void add_data_to_archive(struct Archive* arch) {
         void* memory_ptr = malloc(arch->files[i].size);  // динамически выделяем память под данные файла
 
         fread(memory_ptr, 1, arch->files[i].size, fin);  // читаем данные из файла
-
-        // записываем данные в архив
-        fwrite(memory_ptr, 1, arch->files[i].size, arch->arch_file);  
-        fprintf(arch->arch_file, "\n\n");
+        
+        fwrite(memory_ptr, 1, arch->files[i].size, arch->arch_file);  // записываем данные в архив
 
         free(memory_ptr);
         fclose(fin);
@@ -195,18 +193,17 @@ void archive() {
     // создание текущего пути для записи обхода директории
     char current_path[MAX_SIZE_PATH];
     current_path[0] = '\0';
-    strcat(current_path, "./");
 
-    choose_dir(&arch);  // выбор каталога для архивирования
-
+    // выбор пути директории для архивирования
+    choose_dir(&arch);  
     if (arch.exit == 1) {
         return;
     }
 
     find_folder_name(&arch);  // нахождение имени папки
 
-    choose_arch_path(&arch);  // выбор пути, по которому создастся архив
-
+    // выбор пути, по которому создастся архив
+    choose_arch_path(&arch);  
     if (arch.exit == 1) {
         return;
     }
@@ -315,7 +312,115 @@ void choose_extract_path(struct Extract* extr) {
     }
 
     strcat(extr->extract_path, extr->arch_name);
-    printf("%s\n", extr->extract_path);
+
+    // Создание директории из архива
+    if (mkdir(extr->extract_path, 0755) == -1) {
+        fprintf(stderr, "Не удалось создать директорию по пути %s\n\n", extr->extract_path);
+        extr->exit = 1;
+        return;
+    }
+}
+
+void read_header(struct Extract* extr) {
+    fscanf(extr->arch_file, "*****Header*****\n\nThe number of files in the archive: %zu\n", &extr->files_count);  // считываем кол-во файлов 
+
+    extr->files = malloc(extr->files_count * sizeof(struct file_info));  // динамически выделяем память под файлы
+
+    // считываем инфо о файлах 
+    char line[MAX_SIZE_PATH];
+    for (size_t i = 0; i < extr->files_count; i++) {
+        fgets(line, sizeof(line), extr->arch_file);
+
+        sscanf(line, "Path: %s size: %zu", extr->files[i].path, &extr->files[i].size);
+    }
+
+    // читаем пока не дойдем до данных файлов
+    char buff[128] = "";
+    while (strcmp(buff, "*****Files data*****") != 0) {
+        fgets(buff, sizeof(buff), extr->arch_file);
+        buff[strcspn(buff, "\n")] = '\0';
+    }
+    fgets(buff, sizeof(buff), extr->arch_file); 
+}
+
+void test_path(char* path) {
+    size_t len_path = strlen(path);
+    size_t dir_count = 0;
+
+    // узнаем кол-во директорий в пути
+    for (size_t i = 0; i < len_path; i++) {
+        if (path[i] == '/') {
+            dir_count++;
+        }
+    }
+
+    size_t k = 0;
+    size_t j = 0;
+    char parent_dir[MAX_SIZE_NAME] = "";
+
+    for (size_t i = 0; i < dir_count; i++) {  // пока есть вложенные директории
+        char dir_name[MAX_SIZE_NAME] = "";
+        
+        while (j < len_path) {
+            if (path[j] != '/') {
+                dir_name[k] = path[j];
+                j++;
+                k++;
+            }
+            else {  // если нашли имя директории
+                // записываем имя родительской директории
+                strcat(parent_dir, "../");
+
+                // проверяем существует ли данная директория
+                struct stat statbuf;
+                if (lstat(dir_name, &statbuf) == -1) {  // если директория не существует
+                    // создаем директорию
+                    if (mkdir(dir_name, 0755) == -1) {  
+                        fprintf(stderr, "Не удалось создать вложенную директорию\n");
+                        return;
+                    }
+                }
+
+                chdir(dir_name);  // переходим в созданную директорию
+
+                k = 0;
+                j++;
+                
+                break;
+            }
+        }
+    }
+
+    chdir(parent_dir);  // переходим в родительскую директорию
+}
+
+void extract_data(struct Extract* extr) {
+    chdir(extr->extract_path);  // переходим в разархивированную директорию 
+
+    // проходимся по всем данным архива
+    for (size_t i = 0; i < extr->files_count; i++) {
+        test_path(extr->files[i].path);  // проверка на несуществующие директории
+
+        FILE* fout = fopen(extr->files[i].path, "wb");  // открываем файл для записи
+
+        if (fout == NULL) {
+            fprintf(stderr, "Ошибка создания файла %s для записи!\n", extr->files[i].path);
+            extr->exit = 1;
+            return;
+        }
+
+        void* memory_ptr = malloc(extr->files[i].size);  // динамически выделяем память под данные файла
+
+        fread(memory_ptr, 1, extr->files[i].size, extr->arch_file);  // читаем данные файла из архива
+
+        fwrite(memory_ptr, 1, extr->files[i].size, fout);  // записываем данные в файл
+
+        fclose(fout);
+        free(memory_ptr);
+    }
+
+    chdir("..");
+    fclose(extr->arch_file);
 }
 
 void extract() {
@@ -325,14 +430,24 @@ void extract() {
     extr.archiv_path[0] = '\0';
     extr.extract_path[0] = '\0';
 
+    // Выбор пути к архиву
     choose_file_path(&extr);
     if (extr.exit == 1) {
         return;
     }
 
-    find_arch_name(&extr);
+    find_arch_name(&extr);  // поиск имени архива
     
+    // Выбор пути для разархивирования
     choose_extract_path(&extr);
+    if (extr.exit == 1) {
+        return;
+    }
+
+    read_header(&extr);  // чтение заголовка из архива
+
+    // Извлечение данных из архива
+    extract_data(&extr);
     if (extr.exit == 1) {
         return;
     }

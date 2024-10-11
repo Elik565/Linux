@@ -7,6 +7,16 @@
 #define MAX_SIZE_PATH 128
 #define MAX_SIZE_NAME 64
 
+
+// Структура информации о файле
+struct file_info {
+    char path[MAX_SIZE_PATH];  // относительный путь 
+
+    char real_path[MAX_SIZE_PATH];  // абсолютный путь
+
+    size_t size;  // размер файла
+};
+
 // Структура архивации
 struct Archive {
     char dir_path[MAX_SIZE_PATH];  // путь до архивируемого каталога
@@ -24,15 +34,6 @@ struct Archive {
     int exit;  // на случай завершения архивации 
 };
 
-// Структура информации о файле
-struct file_info {
-    char path[MAX_SIZE_PATH];  // относительный путь 
-
-    char real_path[MAX_SIZE_PATH];  // абсолютный путь
-
-    size_t size;  // размер файла
-};
-
 // Структура разархивации
 struct Extract {
     char archiv_path[MAX_SIZE_PATH];  // путь до архива
@@ -42,6 +43,10 @@ struct Extract {
     char arch_name[MAX_SIZE_NAME];  // имя архива
 
     FILE* arch_file;  // файл архива
+
+    struct file_info* files;  // информация о файлах в архиве
+
+    size_t files_count;  // количество файлов в архиве
 
     int exit;  // на случай завершения разархивации 
 };
@@ -81,6 +86,15 @@ void find_arch_name(struct Extract* extr);
 
 // Выбор пути разархивирования
 void choose_extract_path(struct Extract* extr);
+
+// Чтение заголовка из архива
+void read_header(struct Extract* extr);
+
+// Проверка пути на наличие несуществующих директорий
+void test_path(char* path);
+
+// Извлечение данных из архива
+void extract_data(struct Extract* extr);
 
 // Разархивирование файла
 void extract();

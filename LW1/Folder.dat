@@ -1,13 +1,21 @@
 *****Header*****
 
-The number of files in the archive: 6
+The number of files in the archive: 7
 
-Path: Folder1/file1.txt size: 36
-Path: Folder1/Folder2/file1 size: 32
-Path: file3.c size: 15
-Path: file4.rm size: 16
-Path: file2.txt size: 25
-Path: file1 size: 13
+Path: Folder1/file1.txt
+Size: 36
+Path: Folder1/Folder2/file1
+Size: 32
+Path: file3.c
+Size: 15
+Path: file4.rm
+Size: 16
+Path: file2.txt
+Size: 25
+Path: Space folder/file.txt
+Size: 39
+Path: file1
+Size: 13
 
 *****Files data*****
 
@@ -23,4 +31,7 @@ LineData of file3.cData of file4.rmData of file2.txt
 
 
 Line
-Data of file1
+Data of file.txt in Space folder
+
+
+lineData of file1

@@ -9,7 +9,8 @@ void choose_dir(struct Archive* arch) {
 
     while (dir_ptr == NULL) {
         printf("Введите путь до директории, которую хотите заархивировать: ");
-        scanf("%s", arch->dir_path);
+        fgets(arch->dir_path, sizeof(arch->dir_path), stdin);
+        arch->dir_path[strcspn(arch->dir_path, "\n")] = '\0';
 
         if (strcmp(arch->dir_path, "q") == 0) {  // если нажали 'q', то выходим из программы
             printf("Архивация завершена пользователем\n\n");
@@ -55,7 +56,8 @@ void choose_arch_path(struct Archive* arch) {
 
     while (OK != 1) {
         printf("Введите путь до директории, где сохранить архив: ");
-        scanf("%s", arch->archiv_path);
+        fgets(arch->archiv_path, sizeof(arch->archiv_path), stdin);
+        arch->archiv_path[strcspn(arch->archiv_path, "\n")] = '\0';
 
         if (strcmp(arch->archiv_path, "q") == 0) {  // если нажали 'q', то выходим из программы
             printf("Архивация завершена пользователем\n\n");
@@ -154,7 +156,7 @@ void add_header_to_archive(struct Archive* arch) {
     fprintf(arch->arch_file, "*****Header*****\n\n");
     fprintf(arch->arch_file, "The number of files in the archive: %d\n\n", arch->files_count);
     for (size_t i = 0; i < arch->files_count; i++) {
-        fprintf(arch->arch_file, "Path: %s size: %d\n", arch->files[i].path, arch->files[i].size);
+        fprintf(arch->arch_file, "Path: %s\nSize: %zu\n", arch->files[i].path, arch->files[i].size);
     }
     fprintf(arch->arch_file, "\n*****Files data*****\n\n");
 }
@@ -225,7 +227,8 @@ void choose_file_path(struct Extract* extr) {
 
     while (extr->arch_file == NULL) {
         printf("Введите путь до архива: ");
-        scanf("%s",  extr->archiv_path);
+        fgets(extr->archiv_path, sizeof(extr->archiv_path), stdin);
+        extr->archiv_path[strcspn(extr->archiv_path, "\n")] = '\0';
 
         if (strcmp(extr->archiv_path, "q") == 0) {  // если нажали 'q', то выходим из программы
             printf("Разархивация завершена пользователем\n\n");
@@ -281,7 +284,8 @@ void choose_extract_path(struct Extract* extr) {
 
     while (OK != 1) {
         printf("Введите путь, куда разархивировать файл: ");
-        scanf("%s", extr->extract_path);
+        fgets(extr->extract_path, sizeof(extr->extract_path), stdin);
+        extr->extract_path[strcspn(extr->extract_path, "\n")] = '\0';
 
         if (strcmp(extr->extract_path, "q") == 0) {  // если нажали 'q', то выходим из программы
             printf("Разархивация завершена пользователем\n\n");
@@ -330,8 +334,10 @@ void read_header(struct Extract* extr) {
     char line[MAX_SIZE_PATH];
     for (size_t i = 0; i < extr->files_count; i++) {
         fgets(line, sizeof(line), extr->arch_file);
+        sscanf(line, "Path: %[^\n]", extr->files[i].path);
 
-        sscanf(line, "Path: %s size: %zu", extr->files[i].path, &extr->files[i].size);
+        fgets(line, sizeof(line), extr->arch_file);
+        sscanf(line, "Size: %zu", &extr->files[i].size);
     }
 
     // читаем пока не дойдем до данных файлов
@@ -451,4 +457,6 @@ void extract() {
     if (extr.exit == 1) {
         return;
     }
+
+    printf("Разархивация прошла успешно!\n\n");
 } 

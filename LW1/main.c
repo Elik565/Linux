@@ -12,10 +12,11 @@ int main() {
         printf("Для разархивации файла нажмите '2';\n");
         printf("Для выхода из программы нажмите 'q';\n");
 
-        char choise[5];
+        char choise[5] = "";
         while (strcmp(choise, "1") != 0 && strcmp(choise, "2") != 0) {
             printf("Ввод: ");
-            scanf("%s", choise);
+            fgets(choise, sizeof(choise), stdin);
+            choise[strcspn(choise, "\n")] = '\0';
 
             if (strcmp(choise, "q") == 0) {
                 printf("Программа завершена пользователем\n");

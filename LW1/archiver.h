@@ -96,6 +96,9 @@ void find_arch_name(struct Extract* extr);
 // Выбор пути разархивирования
 void choose_extract_path(struct Extract* extr);
 
+// Отделение имени файла от директорий
+void separate_file_name(char* path);
+
 // Чтение заголовка из архива
 void read_header(struct Extract* extr);
 

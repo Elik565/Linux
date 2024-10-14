@@ -5,6 +5,13 @@
 #include <stdlib.h>
 
 
+void clear_input_buffer() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF) {
+        // очищаем буфер ввода
+    }
+}
+
 int test_path(const char* path) {
     int path_exists = 1;
     char temp_path[MAX_SIZE_PATH] = "";
@@ -55,11 +62,13 @@ void choose_dir(struct Archive* arch) {
 
         if (strlen(arch->dir_path) + 2 >= MAX_SIZE_PATH) {
             fprintf(stderr, "Путь слишком длинный!\n");
+            clear_input_buffer();
         }
-
-        dir_ptr = opendir(arch->dir_path);
-        if (!dir_ptr) {
-            printf("Директория не найдена!\n");
+        else {
+            dir_ptr = opendir(arch->dir_path);
+            if (!dir_ptr) {
+                printf("Директория не найдена!\n");
+            }
         }
     }
 
@@ -102,9 +111,11 @@ void choose_arch_path(struct Archive* arch) {
 
         if (strlen(arch->archiv_path) + 2 >= MAX_SIZE_PATH) {
             fprintf(stderr, "Путь слишком длинный!\n");
+            clear_input_buffer();
         }
-
-        cond = test_path(arch->archiv_path);
+        else {
+            cond = test_path(arch->archiv_path);
+        }
     }
 
     if (arch->archiv_path[strlen(arch->archiv_path)] != '/') {  // если на конце нет '/'
@@ -262,6 +273,7 @@ void choose_file_path(struct Extract* extr) {
 
         if (strlen(extr->archiv_path) + 1 >= MAX_SIZE_PATH) {
             fprintf(stderr, "Путь слишком длинный!\n");
+            clear_input_buffer();
         }
         
         extr->arch_file = fopen(extr->archiv_path, "rb");  // оставляем файл открытым для чтения
@@ -319,6 +331,7 @@ void choose_extract_path(struct Extract* extr) {
 
         if (strlen(extr->extract_path) + 2 >= MAX_SIZE_PATH) {
             fprintf(stderr, "Путь слишком длинный!\n");
+            clear_input_buffer();
         }
         else {
             OK = 1;

@@ -4,7 +4,7 @@
 #include <sys/stat.h>
 #include <stdio.h>
 
-#define MAX_SIZE_PATH 256
+#define MAX_SIZE_PATH 64
 #define MAX_SIZE_NAME 64
 
 
@@ -53,6 +53,9 @@ struct Extract {
 
 
 ///// ПРОТОТИПЫ ВСПОМОГАТЕЛЬНЫХ ФУНКЦИЙ /////
+
+// Очистка буфера ввода
+void clear_input_buffer();
 
 // Проверка пути на наличие несуществующих директорий
 int test_path(const char* path);

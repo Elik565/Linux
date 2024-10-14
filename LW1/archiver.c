@@ -4,6 +4,41 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+
+int test_path(const char* path) {
+    int path_exists = 1;
+    char temp_path[MAX_SIZE_PATH] = "";
+    size_t i = 0;
+    size_t k = 0;
+    if (path[0] == '/') {
+        i++;
+        k++;
+        temp_path[0] = '/';
+    }
+
+    size_t len_path = strlen(path);
+
+    while (i < len_path) {
+        while (path[i] != '/' && i < len_path) {
+            temp_path[k] = path[i];
+            i++;
+            k++;
+        }
+
+        struct stat statbuf;
+        if (lstat (temp_path, &statbuf) == -1) {
+            if (mkdir(temp_path, 0755) == -1) {
+                fprintf(stderr, "Не удалось создать архив по пути %s\n\n", path);
+                return 1;
+            }
+        }
+        temp_path[k++] = '/';
+        i++;
+    }
+
+    return 0;
+}
+
 void choose_dir(struct Archive* arch) {
     DIR* dir_ptr = NULL;
 
@@ -32,29 +67,29 @@ void choose_dir(struct Archive* arch) {
 }
 
 void find_folder_name(struct Archive* arch) {
-    size_t path_size = strlen(arch->dir_path) - 1;
-    if (arch->dir_path[path_size] == '/') {  // проверяем есть ли в конце '/'
+    size_t path_size = strlen(arch->dir_path);
+    if (arch->dir_path[path_size - 1] == '/') {  // проверяем есть ли в конце '/'
         path_size--;
     }
     
-    size_t i = path_size;
+    size_t i = path_size - 1;
     size_t len_name = 0;
-    while (arch->dir_path[i] != '/') {  // находим размер названия директории 
+    while (arch->dir_path[i] != '/' && i >= 0) {  // находим размер названия директории 
         len_name++;
         i--;
     }
     
     size_t j = 0;
-    for (int i = len_name - 1; i >= 0; i--) {  // записываем название директории в переменную
+    for (int i = len_name; i > 0; i--) {  // записываем название директории в переменную
         arch->folder_name[j] = arch->dir_path[path_size - i];
         j++;
     }
 }
 
 void choose_arch_path(struct Archive* arch) {
-    int OK = 0;
+    int cond = 1;
 
-    while (OK != 1) {
+    while (cond == 1) {
         printf("Введите путь до директории, где сохранить архив: ");
         fgets(arch->archiv_path, sizeof(arch->archiv_path), stdin);
         arch->archiv_path[strcspn(arch->archiv_path, "\n")] = '\0';
@@ -68,19 +103,8 @@ void choose_arch_path(struct Archive* arch) {
         if (strlen(arch->archiv_path) + 2 >= MAX_SIZE_PATH) {
             fprintf(stderr, "Путь слишком длинный!\n");
         }
-        else {
-            OK = 1;
-        }
-    }
 
-    // создаем директорию, если пользователь ввел несуществующую
-    DIR* dir_ptr = opendir(arch->archiv_path);
-    if (dir_ptr == NULL) {
-        if (mkdir(arch->archiv_path, 0755) == -1) {
-            fprintf(stderr, "Не удалось создать архив по пути %s\n\n", arch->archiv_path);
-            arch->exit = 1;
-            return;
-        }
+        cond = test_path(arch->archiv_path);
     }
 
     if (arch->archiv_path[strlen(arch->archiv_path)] != '/') {  // если на конце нет '/'
@@ -333,9 +357,11 @@ void read_header(struct Extract* extr) {
     // считываем инфо о файлах 
     char line[MAX_SIZE_PATH];
     for (size_t i = 0; i < extr->files_count; i++) {
+        // считываем путь 
         fgets(line, sizeof(line), extr->arch_file);
         sscanf(line, "Path: %[^\n]", extr->files[i].path);
 
+        // считываем размер
         fgets(line, sizeof(line), extr->arch_file);
         sscanf(line, "Size: %zu", &extr->files[i].size);
     }
@@ -347,57 +373,6 @@ void read_header(struct Extract* extr) {
         buff[strcspn(buff, "\n")] = '\0';
     }
     fgets(buff, sizeof(buff), extr->arch_file); 
-}
-
-void test_path(char* path) {
-    size_t len_path = strlen(path);
-    size_t dir_count = 0;
-
-    // узнаем кол-во директорий в пути
-    for (size_t i = 0; i < len_path; i++) {
-        if (path[i] == '/') {
-            dir_count++;
-        }
-    }
-
-    size_t k = 0;
-    size_t j = 0;
-    char parent_dir[MAX_SIZE_NAME] = "";
-
-    for (size_t i = 0; i < dir_count; i++) {  // пока есть вложенные директории
-        char dir_name[MAX_SIZE_NAME] = "";
-        
-        while (j < len_path) {
-            if (path[j] != '/') {
-                dir_name[k] = path[j];
-                j++;
-                k++;
-            }
-            else {  // если нашли имя директории
-                // записываем имя родительской директории
-                strcat(parent_dir, "../");
-
-                // проверяем существует ли данная директория
-                struct stat statbuf;
-                if (lstat(dir_name, &statbuf) == -1) {  // если директория не существует
-                    // создаем директорию
-                    if (mkdir(dir_name, 0755) == -1) {  
-                        fprintf(stderr, "Не удалось создать вложенную директорию\n");
-                        return;
-                    }
-                }
-
-                chdir(dir_name);  // переходим в созданную директорию
-
-                k = 0;
-                j++;
-                
-                break;
-            }
-        }
-    }
-
-    chdir(parent_dir);  // переходим в родительскую директорию
 }
 
 void extract_data(struct Extract* extr) {

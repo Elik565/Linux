@@ -4,7 +4,7 @@
 #include <sys/stat.h>
 #include <stdio.h>
 
-#define MAX_SIZE_PATH 128
+#define MAX_SIZE_PATH 256
 #define MAX_SIZE_NAME 64
 
 
@@ -54,8 +54,9 @@ struct Extract {
 
 ///// ПРОТОТИПЫ ВСПОМОГАТЕЛЬНЫХ ФУНКЦИЙ /////
 
-// Очистка буфера ввода
-void clear_input_buf();
+// Проверка пути на наличие несуществующих директорий
+int test_path(const char* path);
+
 
 ///// ПРОТОТИПЫ ФУНКЦИЙ ДЛЯ АРХИВИРОВАНИЯ /////
 
@@ -94,9 +95,6 @@ void choose_extract_path(struct Extract* extr);
 
 // Чтение заголовка из архива
 void read_header(struct Extract* extr);
-
-// Проверка пути на наличие несуществующих директорий
-void test_path(char* path);
 
 // Извлечение данных из архива
 void extract_data(struct Extract* extr);

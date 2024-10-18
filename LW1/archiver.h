@@ -6,6 +6,7 @@
 
 #define MAX_SIZE_PATH 64
 #define MAX_SIZE_NAME 64
+#define MAX_COUNT_SYMBOLS 256
 
 
 // Структура информации о файле
@@ -47,6 +48,13 @@ struct Extract {
     size_t files_count;  // количество файлов в архиве
 };
 
+// Структура символа для арифметического кодирования
+struct Symbol {
+    double low;  // нижняя граница интервала
+
+    double high;  // верхняя граница интервала
+};
+
 
 ///// ПРОТОТИПЫ ВСПОМОГАТЕЛЬНЫХ ФУНКЦИЙ /////
 
@@ -74,8 +82,11 @@ int collect_files_info(const char* dir, char* current_path, struct Archive* arch
 // Запись заголовка в архив
 void add_header_to_archive(struct Archive* arch);
 
+// Расчет вероятностей символов
+void calc_symbols_probabilities(char* memory_ptr, size_t file_size, struct Symbol* symbols);
+
 // Арифметическое кодирование данных
-void arithmetic_coding(void* memory_ptr);
+void arithmetic_coding(char* memory_ptr, size_t file_size);
 
 // Запись данных в архив
 int add_data_to_archive(struct Archive* arch);

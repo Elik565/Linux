@@ -202,11 +202,33 @@ void add_header_to_archive(struct Archive* arch) {
     fprintf(arch->arch_file, "\n*****Files data*****\n\n");
 }
 
-void arithmetic_coding(void* memory_ptr) {
-    double low = 0;
-    double high = 1;
+void calc_symbols_probabilities(char* memory_ptr, size_t file_size, struct Symbol* symbols) {
+    size_t freq[MAX_COUNT_SYMBOLS] = {0};  // частота символа
 
+    for (size_t i = 0; i < file_size; i++) {  // проходимся по всему файлу
+        freq[memory_ptr[i]]++;  // увеличиваем частоту символа
+    }
 
+    double symbols_in_file = (double)file_size;  // количество символов в файле
+    double low = 0.0;  // нижняя граница интервала
+
+    for (size_t i = 0; i < MAX_COUNT_SYMBOLS; i++) {
+        double prob = freq[i] / symbols_in_file;  // вероятность 
+        symbols[i].low = low;
+        symbols[i].high = low + prob;
+        low += prob;
+    }
+}
+
+void arithmetic_coding(char* memory_ptr, size_t file_size) {
+    struct Symbol symbols[MAX_COUNT_SYMBOLS];  // структура символов
+    
+    calc_symbols_probabilities(memory_ptr, file_size, symbols);
+
+    for (size_t i = 0; i < file_size; i++) {
+        
+    }
+    
 }
 
 int add_data_to_archive(struct Archive* arch) {
@@ -218,11 +240,11 @@ int add_data_to_archive(struct Archive* arch) {
             return 1;
         }
 
-        void* memory_ptr = malloc(arch->files[i].size);  // динамически выделяем память под данные файла
+        char* memory_ptr = malloc(arch->files[i].size);  // динамически выделяем память под данные файла
 
         fread(memory_ptr, 1, arch->files[i].size, fin);  // читаем данные из файла
 
-        arithmetic_coding(memory_ptr);
+        arithmetic_coding(memory_ptr, arch->files[i].size);
         
         fwrite(memory_ptr, 1, arch->files[i].size, arch->arch_file);  // записываем данные в архив
 

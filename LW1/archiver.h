@@ -30,8 +30,6 @@ struct Archive {
     struct file_info* files;  // информация о файлах директории
 
     size_t files_count;  // количество файлов в директории
-
-    int exit;  // на случай завершения архивации 
 };
 
 // Структура разархивации
@@ -47,8 +45,6 @@ struct Extract {
     struct file_info* files;  // информация о файлах в архиве
 
     size_t files_count;  // количество файлов в архиве
-
-    int exit;  // на случай завершения разархивации 
 };
 
 
@@ -64,22 +60,25 @@ int test_path(const char* path);
 ///// ПРОТОТИПЫ ФУНКЦИЙ ДЛЯ АРХИВИРОВАНИЯ /////
 
 // Выбор каталога для архивирования
-void choose_dir(struct Archive* arch);
+int choose_dir(char* dir_path);
 
 // Поиск имени директории
 void find_folder_name(struct Archive* arch);
 
 // Выбор пути сохранения архива
-void choose_arch_path(struct Archive* arch);
+int choose_arch_path(struct Archive* arch);
 
 // Сбор информации о файлах
-void collect_files_info(const char* dir, char* current_path, struct Archive* arch);
+int collect_files_info(const char* dir, char* current_path, struct Archive* arch);
 
 // Запись заголовка в архив
 void add_header_to_archive(struct Archive* arch);
 
+// Арифметическое кодирование данных
+void arithmetic_coding(void* memory_ptr);
+
 // Запись данных в архив
-void add_data_to_archive(struct Archive* arch);
+int add_data_to_archive(struct Archive* arch);
 
 // Архивирование директории
 void archive();
@@ -88,13 +87,13 @@ void archive();
 ///// ПРОТОТИПЫ ФУНКЦИЙ ДЛЯ РАЗАРХИВИРОВАНИЯ /////
 
 // Выбор пути к архиву
-void choose_file_path(struct Extract* extr);
+int choose_file_path(struct Extract* extr);
 
 // Поиск имени архива
 void find_arch_name(struct Extract* extr);
 
 // Выбор пути разархивирования
-void choose_extract_path(struct Extract* extr);
+int choose_extract_path(struct Extract* extr);
 
 // Отделение имени файла от директорий
 void separate_file_name(char* path);
@@ -103,7 +102,7 @@ void separate_file_name(char* path);
 void read_header(struct Extract* extr);
 
 // Извлечение данных из архива
-void extract_data(struct Extract* extr);
+int extract_data(struct Extract* extr);
 
 // Разархивирование файла
 void extract();

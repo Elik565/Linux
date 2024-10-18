@@ -35,7 +35,7 @@ int test_path(const char* path) {
         struct stat statbuf;
         if (lstat (temp_path, &statbuf) == -1) {
             if (mkdir(temp_path, 0755) == -1) {
-                fprintf(stderr, "Не удалось создать архив по пути %s\n\n", path);
+                fprintf(stderr, "Ошибка в пути %s\n\n", path);
                 return 1;
             }
         }
@@ -46,26 +46,25 @@ int test_path(const char* path) {
     return 0;
 }
 
-void choose_dir(struct Archive* arch) {
+int choose_dir(char* dir_path) {
     DIR* dir_ptr = NULL;
 
     while (dir_ptr == NULL) {
         printf("Введите путь до директории, которую хотите заархивировать: ");
-        fgets(arch->dir_path, sizeof(arch->dir_path), stdin);
-        arch->dir_path[strcspn(arch->dir_path, "\n")] = '\0';
+        fgets(dir_path, MAX_SIZE_PATH, stdin);
+        dir_path[strcspn(dir_path, "\n")] = '\0';
 
-        if (strcmp(arch->dir_path, "q") == 0) {  // если нажали 'q', то выходим из программы
+        if (strcmp(dir_path, "q") == 0) {  // если нажали 'q', то выходим из программы
             printf("Архивация завершена пользователем\n\n");
-            arch->exit = 1;
-            return;
+            return 1;
         }
 
-        if (strlen(arch->dir_path) + 2 >= MAX_SIZE_PATH) {
+        if (strlen(dir_path) + 2 >= MAX_SIZE_PATH) {
             fprintf(stderr, "Путь слишком длинный!\n");
             clear_input_buffer();
         }
         else {
-            dir_ptr = opendir(arch->dir_path);
+            dir_ptr = opendir(dir_path);
             if (!dir_ptr) {
                 printf("Директория не найдена!\n");
             }
@@ -73,6 +72,7 @@ void choose_dir(struct Archive* arch) {
     }
 
     closedir(dir_ptr);
+    return 0;
 }
 
 void find_folder_name(struct Archive* arch) {
@@ -81,7 +81,7 @@ void find_folder_name(struct Archive* arch) {
         path_size--;
     }
     
-    size_t i = path_size - 1;
+    int i = path_size - 1;
     size_t len_name = 0;
     while (arch->dir_path[i] != '/' && i >= 0) {  // находим размер названия директории 
         len_name++;
@@ -95,7 +95,7 @@ void find_folder_name(struct Archive* arch) {
     }
 }
 
-void choose_arch_path(struct Archive* arch) {
+int choose_arch_path(struct Archive* arch) {
     int cond = 1;
 
     while (cond == 1) {
@@ -105,28 +105,40 @@ void choose_arch_path(struct Archive* arch) {
 
         if (strcmp(arch->archiv_path, "q") == 0) {  // если нажали 'q', то выходим из программы
             printf("Архивация завершена пользователем\n\n");
-            arch->exit = 1;
-            return;
+            return 1;
         }
 
         if (strlen(arch->archiv_path) + 2 >= MAX_SIZE_PATH) {
             fprintf(stderr, "Путь слишком длинный!\n");
             clear_input_buffer();
         }
-        else {
-            cond = test_path(arch->archiv_path);
+
+        else if (test_path(arch->archiv_path) == 0) {
+            if (arch->archiv_path[strlen(arch->archiv_path)] != '/') {  // если на конце нет '/'
+                strcat(arch->archiv_path, "/");  // добавляем '/' 
+            }
+
+            find_folder_name(arch);
+
+            strcat(arch->archiv_path, arch->folder_name);
+            strcat(arch->archiv_path, ".dat");
+
+            cond = 0;
+        }
+
+        if (cond == 0) {
+            arch->arch_file = fopen(arch->archiv_path, "wb");  // оставляем открытым файл для записи
+            if (arch->arch_file == NULL) {
+                fprintf(stderr, "Ошибка открытия архива для записи!\n");
+                cond = 1;
+            }
         }
     }
 
-    if (arch->archiv_path[strlen(arch->archiv_path)] != '/') {  // если на конце нет '/'
-        strcat(arch->archiv_path, "/");  // добавляем '/' 
-    }
-
-    strcat(arch->archiv_path, arch->folder_name);
-    strcat(arch->archiv_path, ".dat");
+    return 0;
 }
 
-void collect_files_info(const char* dir, char* current_path, struct Archive* arch) {
+int collect_files_info(const char* dir, char* current_path, struct Archive* arch) {
     DIR* dirptr;
     struct dirent* entry; 
     struct stat statbuf;
@@ -135,7 +147,7 @@ void collect_files_info(const char* dir, char* current_path, struct Archive* arc
 
     if ((dirptr = opendir(dir)) == NULL) {
         fprintf(stderr, "Не получается открыть директорию: %s\n", dir);
-        return;
+        return 1;
     }
 
     chdir(dir);  // меняет текущий каталог на переданный в функцию
@@ -158,8 +170,7 @@ void collect_files_info(const char* dir, char* current_path, struct Archive* arc
             current_path[cur_path_len] = '\0';  // восстанавливаем текущий путь после рекурсии
         }
         else {
-            // выделяем память под новый файл
-            arch->files = realloc(arch->files, (arch->files_count + 1) * sizeof(struct file_info));
+            arch->files = realloc(arch->files, (arch->files_count + 1) * sizeof(struct file_info));  // выделяем память под новый файл
     
             arch->files[arch->files_count].size = statbuf.st_size;  // размер файла
 
@@ -178,16 +189,11 @@ void collect_files_info(const char* dir, char* current_path, struct Archive* arc
     
     chdir("..");  // переходим в родительскую директорию
     closedir(dirptr);  // закрываем директорию
+
+    return 0;
 }
 
 void add_header_to_archive(struct Archive* arch) {
-    arch->arch_file = fopen(arch->archiv_path, "wb");  // оставляем открытым файл для записи
-
-    if (arch->arch_file == NULL) {
-        fprintf(stderr, "Ошибка открытия архива для записи!\n");
-        return;
-    }
-
     fprintf(arch->arch_file, "*****Header*****\n\n");
     fprintf(arch->arch_file, "The number of files in the archive: %d\n\n", arch->files_count);
     for (size_t i = 0; i < arch->files_count; i++) {
@@ -196,18 +202,27 @@ void add_header_to_archive(struct Archive* arch) {
     fprintf(arch->arch_file, "\n*****Files data*****\n\n");
 }
 
-void add_data_to_archive(struct Archive* arch) {
+void arithmetic_coding(void* memory_ptr) {
+    double low = 0;
+    double high = 1;
+
+
+}
+
+int add_data_to_archive(struct Archive* arch) {
     for (size_t i = 0; i < arch->files_count; i++) {
         FILE* fin = fopen(arch->files[i].real_path, "rb");
 
         if (fin == NULL) {
             fprintf(stderr, "Ошибка открытия файла %s для архивации!\n", arch->files[i].real_path);
-            return;
+            return 1;
         }
 
         void* memory_ptr = malloc(arch->files[i].size);  // динамически выделяем память под данные файла
 
         fread(memory_ptr, 1, arch->files[i].size, fin);  // читаем данные из файла
+
+        arithmetic_coding(memory_ptr);
         
         fwrite(memory_ptr, 1, arch->files[i].size, arch->arch_file);  // записываем данные в архив
 
@@ -216,14 +231,15 @@ void add_data_to_archive(struct Archive* arch) {
     }
 
     fclose(arch->arch_file);
+
+    return 0;
 }
 
 void archive() {
-    // Создание структуры архивации
+    // создание структуры архивации
     struct Archive arch;
-    arch.files = NULL;
+    arch.files = malloc(sizeof(struct file_info));
     arch.files_count = 0;
-    arch.exit = 0;
     arch.archiv_path[0] = '\0';
     arch.dir_path[0] = '\0';
     
@@ -232,24 +248,27 @@ void archive() {
     current_path[0] = '\0';
 
     // выбор пути директории для архивирования
-    choose_dir(&arch);  
-    if (arch.exit == 1) {
+    if (choose_dir(arch.dir_path) != 0) {
         return;
     }
-
-    find_folder_name(&arch);  // нахождение имени папки
 
     // выбор пути, по которому создастся архив
-    choose_arch_path(&arch);  
-    if (arch.exit == 1) {
+    if (choose_arch_path(&arch) != 0) {
         return;
     }
 
-    collect_files_info(arch.dir_path, current_path, &arch);  // сбор инфо о файлах
+    // сбор инфо о файлах
+    if (collect_files_info(arch.dir_path, current_path, &arch) != 0) {
+        return;
+    }  
 
-    add_header_to_archive(&arch);  // запись заголовка в архив
+    // запись заголовка в архив
+    add_header_to_archive(&arch);
 
-    add_data_to_archive(&arch);  // запись данных в архив
+    // запись данных в архив
+    if (add_data_to_archive(&arch) != 0) {
+        return;
+    }  
 
     printf("Архив успешно создан!\n\n");
 }
@@ -257,7 +276,7 @@ void archive() {
 
 
 
-void choose_file_path(struct Extract* extr) {
+int choose_file_path(struct Extract* extr) {
     extr->arch_file = NULL;
 
     while (extr->arch_file == NULL) {
@@ -267,8 +286,7 @@ void choose_file_path(struct Extract* extr) {
 
         if (strcmp(extr->archiv_path, "q") == 0) {  // если нажали 'q', то выходим из программы
             printf("Разархивация завершена пользователем\n\n");
-            extr->exit = 1;
-            return;
+            return 1;
         }
 
         if (strlen(extr->archiv_path) + 1 >= MAX_SIZE_PATH) {
@@ -289,6 +307,8 @@ void choose_file_path(struct Extract* extr) {
             printf("Файл не найден!\n");
         }
     }
+
+    return 0;
 }
 
 void find_arch_name(struct Extract* extr) {
@@ -315,7 +335,7 @@ void find_arch_name(struct Extract* extr) {
     }
 }
 
-void choose_extract_path(struct Extract* extr) {
+int choose_extract_path(struct Extract* extr) {
     int cond = 1;
 
     while (cond == 1) {
@@ -325,8 +345,7 @@ void choose_extract_path(struct Extract* extr) {
 
         if (strcmp(extr->extract_path, "q") == 0) {  // если нажали 'q', то выходим из программы
             printf("Разархивация завершена пользователем\n\n");
-            extr->exit = 1;
-            return;
+            return 1;
         }
 
         if (strlen(extr->extract_path) + 2 >= MAX_SIZE_PATH) {
@@ -351,6 +370,8 @@ void choose_extract_path(struct Extract* extr) {
             }
         }
     }
+
+    return 0;
 }
 
 void separate_file_name(char* path) {
@@ -388,7 +409,7 @@ void read_header(struct Extract* extr) {
     fgets(buff, sizeof(buff), extr->arch_file); 
 }
 
-void extract_data(struct Extract* extr) {
+int extract_data(struct Extract* extr) {
     chdir(extr->extract_path);  // переходим в разархивированную директорию 
 
     // проходимся по всем данным архива
@@ -402,8 +423,7 @@ void extract_data(struct Extract* extr) {
 
         if (fout == NULL) {
             fprintf(stderr, "Ошибка создания файла %s для записи!\n", extr->files[i].real_path);
-            extr->exit = 1;
-            return;
+            return 1;
         }
 
         void* memory_ptr = malloc(extr->files[i].size);  // динамически выделяем память под данные файла
@@ -418,34 +438,32 @@ void extract_data(struct Extract* extr) {
 
     chdir("..");
     fclose(extr->arch_file);
+
+    return 0;
 }
 
 void extract() {
-    // Создание структуры разархивации
+    // создание структуры разархивации
     struct Extract extr;  
-    extr.exit = 0;
     extr.archiv_path[0] = '\0';
     extr.extract_path[0] = '\0';
 
-    // Выбор пути к архиву
-    choose_file_path(&extr);
-    if (extr.exit == 1) {
+    // выбор пути к архиву
+    if (choose_file_path(&extr) != 0) {
         return;
     }
 
     find_arch_name(&extr);  // поиск имени архива
     
-    // Выбор пути для разархивирования
-    choose_extract_path(&extr);
-    if (extr.exit == 1) {
+    // выбор пути для разархивирования
+    if (choose_extract_path(&extr) != 0) {
         return;
     }
 
     read_header(&extr);  // чтение заголовка из архива
 
-    // Извлечение данных из архива
-    extract_data(&extr);
-    if (extr.exit == 1) {
+    // извлечение данных из архива
+    if (extract_data(&extr) != 0) {
         return;
     }
 

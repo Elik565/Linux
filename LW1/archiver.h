@@ -7,6 +7,7 @@
 #define MAX_SIZE_PATH 64
 #define MAX_SIZE_NAME 64
 #define MAX_COUNT_SYMBOLS 256
+#define EPSILON 1e-12
 
 
 // Структура информации о файле
@@ -83,10 +84,10 @@ int collect_files_info(const char* dir, char* current_path, struct Archive* arch
 void add_header_to_archive(struct Archive* arch);
 
 // Расчет вероятностей символов
-void calc_symbols_probabilities(char* memory_ptr, size_t file_size, struct Symbol* symbols);
+void calc_symbols_probabilities(const unsigned char* memory_ptr, size_t file_size, struct Symbol* symbols);
 
-// Арифметическое кодирование данных
-void arithmetic_coding(char* memory_ptr, size_t file_size);
+// Рассчет значения для арифметического значения
+double arithmetic_coding(const unsigned char* memory_ptr, size_t file_size, struct Symbol* symbols);
 
 // Запись данных в архив
 int add_data_to_archive(struct Archive* arch);
@@ -111,6 +112,12 @@ void separate_file_name(char* path);
 
 // Чтение заголовка из архива
 void read_header(struct Extract* extr);
+
+// Поиск символа
+unsigned char find_symbol(struct Symbol* symbols, const double value);
+
+// Арифметическое декодирование
+void arithmetic_decoding(unsigned char* memory_ptr, size_t data_size, struct Symbol* symbols, const double value);
 
 // Извлечение данных из архива
 int extract_data(struct Extract* extr);

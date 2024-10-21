@@ -93,6 +93,8 @@ void find_folder_name(struct Archive* arch) {
         arch->folder_name[j] = arch->dir_path[path_size - i];
         j++;
     }
+
+    arch->folder_name[len_name] = '\0';
 }
 
 int choose_arch_path(struct Archive* arch) {
@@ -202,36 +204,54 @@ void add_header_to_archive(struct Archive* arch) {
     fprintf(arch->arch_file, "\n*****Files data*****\n\n");
 }
 
-void calc_symbols_probabilities(char* memory_ptr, size_t file_size, struct Symbol* symbols) {
+void calc_symbols_probabilities(const unsigned char* memory_ptr, size_t file_size, struct Symbol* symbols) {
     size_t freq[MAX_COUNT_SYMBOLS] = {0};  // частота символа
 
-    for (size_t i = 0; i < file_size; i++) {  // проходимся по всему файлу
-        freq[memory_ptr[i]]++;  // увеличиваем частоту символа
+    // Считаем частоту каждого символа
+    for (size_t i = 0; i < file_size; i++) {
+        freq[memory_ptr[i]]++;
     }
 
     double symbols_in_file = (double)file_size;  // количество символов в файле
     double low = 0.0;  // нижняя граница интервала
 
+    // Проходим по всем возможным символам
     for (size_t i = 0; i < MAX_COUNT_SYMBOLS; i++) {
-        double prob = freq[i] / symbols_in_file;  // вероятность 
-        symbols[i].low = low;
-        symbols[i].high = low + prob;
-        low += prob;
+        if (freq[i] > 0) {
+            double prob = freq[i] / symbols_in_file;  // вероятность 
+            symbols[i].low = low;  // устанавливаем нижнюю границу
+            symbols[i].high = low + prob;  // устанавливаем верхнюю границу
+            low += prob;  // обновляем нижнюю границу
+        } else {
+            symbols[i].low = low;  // сохраняем ту же нижнюю границу
+            symbols[i].high = low;  // верхняя граница должна совпадать с нижней
+        }
     }
 }
 
-void arithmetic_coding(char* memory_ptr, size_t file_size) {
-    struct Symbol symbols[MAX_COUNT_SYMBOLS];  // структура символов
-    
-    calc_symbols_probabilities(memory_ptr, file_size, symbols);
+double arithmetic_coding(const unsigned char* memory_ptr, size_t file_size, struct Symbol* symbols) {
+    // интервал для всего файла
+    double low = 0.0;
+    double high = 1.0;
 
     for (size_t i = 0; i < file_size; i++) {
-        
+        double diff = high - low;
+
+        unsigned char symbol_index = memory_ptr[i];  // получаем индекс символа
+
+        // обновляем интервал
+        if (symbols[symbol_index].high > symbols[symbol_index].low) { // Проверяем, что диапазон не нулевой
+            high = low + diff * symbols[symbol_index].high;
+            low = low + diff * symbols[symbol_index].low;
+        }
     }
-    
+
+    return low;
 }
 
+
 int add_data_to_archive(struct Archive* arch) {
+    // проходимся по всем файлам для записи в архив
     for (size_t i = 0; i < arch->files_count; i++) {
         FILE* fin = fopen(arch->files[i].real_path, "rb");
 
@@ -240,13 +260,18 @@ int add_data_to_archive(struct Archive* arch) {
             return 1;
         }
 
-        char* memory_ptr = malloc(arch->files[i].size);  // динамически выделяем память под данные файла
+        unsigned char* memory_ptr = (unsigned char*)malloc(arch->files[i].size * sizeof(unsigned char));  // динамически выделяем память под данные файла
 
         fread(memory_ptr, 1, arch->files[i].size, fin);  // читаем данные из файла
 
-        arithmetic_coding(memory_ptr, arch->files[i].size);
-        
-        fwrite(memory_ptr, 1, arch->files[i].size, arch->arch_file);  // записываем данные в архив
+        // алгоритм арифметического кодирования
+        struct Symbol symbols[MAX_COUNT_SYMBOLS];  // вероятности символов
+        calc_symbols_probabilities(memory_ptr, arch->files[i].size, symbols);  // расчет вероятностей символов
+
+        double value = arithmetic_coding(memory_ptr, arch->files[i].size, symbols);  // рассчет значения для кодирования
+
+        fwrite(symbols, sizeof(struct Symbol), MAX_COUNT_SYMBOLS, arch->arch_file);  // записываем вероятности символов в архив
+        fwrite(&value, sizeof(double), 1, arch->arch_file);  // записываем значение для кодирования в архив
 
         free(memory_ptr);
         fclose(fin);
@@ -336,7 +361,7 @@ int choose_file_path(struct Extract* extr) {
 void find_arch_name(struct Extract* extr) {
     size_t path_size = strlen(extr->archiv_path) - 1;
     
-    size_t i = path_size;
+    int i = path_size;
     size_t len_format = 0;
     while (extr->archiv_path[i] != '.') {  // находим длину формата архива (на случай содержания в имени точек)
         len_format++;
@@ -345,7 +370,7 @@ void find_arch_name(struct Extract* extr) {
     
     size_t len_name = 0;
     i = path_size - len_format - 1;  // учитываем точку
-    while (extr->archiv_path[i] != '/') {  // находим размер названия архива
+    while (extr->archiv_path[i] != '/' && i >= 0) {  // находим размер названия архива
         len_name++;
         i--;
     }
@@ -355,6 +380,8 @@ void find_arch_name(struct Extract* extr) {
         extr->arch_name[j] = extr->archiv_path[path_size - i];
         j++;
     }
+
+    extr->arch_name[len_name] = '\0';
 }
 
 int choose_extract_path(struct Extract* extr) {
@@ -413,11 +440,11 @@ void read_header(struct Extract* extr) {
     // считываем инфо о файлах 
     char line[MAX_SIZE_PATH];
     for (size_t i = 0; i < extr->files_count; i++) {
-        // считываем путь 
+        // считываем путь файла
         fgets(line, sizeof(line), extr->arch_file);
         sscanf(line, "Path: %[^\n]", extr->files[i].path);
 
-        // считываем размер
+        // считываем размер файла
         fgets(line, sizeof(line), extr->arch_file);
         sscanf(line, "Size: %zu", &extr->files[i].size);
     }
@@ -429,6 +456,34 @@ void read_header(struct Extract* extr) {
         buff[strcspn(buff, "\n")] = '\0';
     }
     fgets(buff, sizeof(buff), extr->arch_file); 
+}
+
+unsigned char find_symbol(struct Symbol* symbols, const double value) {
+    for (size_t i = 0; i < MAX_COUNT_SYMBOLS; i++) {
+        if (value >= symbols[i].low - EPSILON && value < symbols[i].high + EPSILON) {
+            return (unsigned char)i;
+        }       
+    }
+
+    return 0;
+}
+
+void arithmetic_decoding(unsigned char* memory_ptr, size_t file_size, struct Symbol* symbols, double value) {
+    long double low = 0.0;  // нижняя граница интервала
+    long double high = 1.0;  // верхняя граница интервала
+
+    for (size_t i = 0; i < file_size; i++) {
+        double diff = high - low;
+        double encod_value = (value - low) / diff; // нормализация закодированного значения
+
+        unsigned char symbol = find_symbol(symbols, encod_value);  // находим символ
+
+        memory_ptr[i] = symbol; // сохраняем декодированный символ
+
+        // обновляем интервал на основе символа
+        high = low + diff * symbols[symbol].high;
+        low = low + diff * symbols[symbol].low;
+    }
 }
 
 int extract_data(struct Extract* extr) {
@@ -448,9 +503,15 @@ int extract_data(struct Extract* extr) {
             return 1;
         }
 
-        void* memory_ptr = malloc(extr->files[i].size);  // динамически выделяем память под данные файла
+        struct Symbol symbols[MAX_COUNT_SYMBOLS];  // вероятности символов
+        fread(symbols, sizeof(struct Symbol), MAX_COUNT_SYMBOLS, extr->arch_file);  // читаем вероятности символов из архива
 
-        fread(memory_ptr, 1, extr->files[i].size, extr->arch_file);  // читаем данные файла из архива
+        double value;  // значение для декодирования
+        fread(&value, sizeof(double), 1, extr->arch_file);  // читаем значение для декодирования из архива
+
+        unsigned char* memory_ptr = (unsigned char*)malloc(extr->files[i].size);  // динамически выделяем память под данные файла
+
+        arithmetic_decoding(memory_ptr, extr->files[i].size, symbols, value);  // декодирование данных
 
         fwrite(memory_ptr, 1, extr->files[i].size, fout);  // записываем данные в файл
 

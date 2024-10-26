@@ -7,7 +7,15 @@
 #define MAX_SIZE_PATH 64
 #define MAX_SIZE_NAME 64
 #define MAX_COUNT_SYMBOLS 256
-#define EPSILON 1e-12
+
+#define BIT_LIMIT 16  // разрядность числа
+#define BASE 2  // система счисления
+#define MAX_SIZE 65535  // максимальное число
+#define BIT_MOVE 1  // сдвиг битов
+
+#define FIRST_QTR 16384  // четверть
+#define HALF 32768  // половина
+#define THIRD_QTR 49152  // 3 четверти
 
 
 // Структура информации о файле
@@ -51,9 +59,11 @@ struct Extract {
 
 // Структура символа для арифметического кодирования
 struct Symbol {
-    double low;  // нижняя граница интервала
+    int low;  // нижняя граница интервала
 
-    double high;  // верхняя граница интервала
+    int high;  // верхняя граница интервала
+
+    int freq;  // частота символа
 };
 
 
@@ -65,6 +75,17 @@ void clear_input_buffer();
 // Проверка пути на наличие несуществующих директорий
 int test_path(const char* path);
 
+// Битовый сдвиг влево, заполнение 0 снизу
+int bml(int num, int pos, int base);
+
+// Битовый сдвиг влево, заполнение 1 снизу
+int bmlt(int num, int pos, int base);
+
+// Заполнение кода
+int bits_plus_follow(int bit, int bits_to_follow);
+
+// Округление числа
+int my_round(double value);
 
 ///// ПРОТОТИПЫ ФУНКЦИЙ ДЛЯ АРХИВИРОВАНИЯ /////
 
@@ -83,11 +104,11 @@ int collect_files_info(const char* dir, char* current_path, struct Archive* arch
 // Запись заголовка в архив
 void add_header_to_archive(struct Archive* arch);
 
-// Расчет вероятностей символов
-void calc_symbols_probabilities(const unsigned char* memory_ptr, size_t file_size, struct Symbol* symbols);
+// Создание таблицы вероятностей символов
+void calc_freq_table(const unsigned char* memory_ptr, double freq_table[MAX_COUNT_SYMBOLS][2]);
 
 // Рассчет значения для арифметического значения
-double arithmetic_coding(const unsigned char* memory_ptr, size_t file_size, struct Symbol* symbols);
+size_t arithmetic_coding(const unsigned char* memory_ptr, double freq_table[MAX_COUNT_SYMBOLS][2], unsigned char* encoded_data);
 
 // Запись данных в архив
 int add_data_to_archive(struct Archive* arch);
@@ -114,10 +135,10 @@ void separate_file_name(char* path);
 void read_header(struct Extract* extr);
 
 // Поиск символа
-unsigned char find_symbol(struct Symbol* symbols, const double value);
+unsigned char find_symbol(struct Symbol* symbols, const long double value);
 
 // Арифметическое декодирование
-void arithmetic_decoding(unsigned char* memory_ptr, size_t data_size, struct Symbol* symbols, const double value);
+void arithmetic_decoding(const unsigned char* memory_ptr, int freq_table[MAX_COUNT_SYMBOLS][2], int length, char* decoded_data);
 
 // Извлечение данных из архива
 int extract_data(struct Extract* extr);

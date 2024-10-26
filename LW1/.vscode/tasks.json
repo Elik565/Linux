@@ -10,7 +10,9 @@
                 "main.c",
                 "archiver.c",
                 "-o",
-                "archiver"
+                "archiver",
+                "-lm"
+
             ],
             "options": {
                 "cwd": "${fileDirname}"

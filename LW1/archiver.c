@@ -3,7 +3,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
-
+#include <limits.h>
+#include <math.h>
 
 void clear_input_buffer() {
     int c;
@@ -44,6 +45,35 @@ int test_path(const char* path) {
     }
 
     return 0;
+}
+
+int bml(int num, int pos, int base) {
+    return (num << pos) % base;
+}
+
+int bmlt(int num, int pos, int base) {
+    num <<= pos;
+    for (int i = 0; i < pos; i++) {
+        num = num | (1 << i);
+    }
+
+    return num % base;
+}
+
+int bits_plus_follow(int bit, int bits_to_follow) {
+    int code = bit;
+
+    while (bits_to_follow > 0) {
+        bits_to_follow--;
+        code = (code << 1) | bit;
+    }
+
+    return code;
+}
+
+double round_to_decimal(double num, int decimal_places) {
+    double factor = pow(10, decimal_places);
+    return round(num * factor);
 }
 
 int choose_dir(char* dir_path) {
@@ -204,51 +234,79 @@ void add_header_to_archive(struct Archive* arch) {
     fprintf(arch->arch_file, "\n*****Files data*****\n\n");
 }
 
-void calc_symbols_probabilities(const unsigned char* memory_ptr, size_t file_size, struct Symbol* symbols) {
-    size_t freq[MAX_COUNT_SYMBOLS] = {0};  // частота символа
-
-    // Считаем частоту каждого символа
-    for (size_t i = 0; i < file_size; i++) {
-        freq[memory_ptr[i]]++;
-    }
-
-    double symbols_in_file = (double)file_size;  // количество символов в файле
-    double low = 0.0;  // нижняя граница интервала
-
-    // Проходим по всем возможным символам
-    for (size_t i = 0; i < MAX_COUNT_SYMBOLS; i++) {
-        if (freq[i] > 0) {
-            double prob = freq[i] / symbols_in_file;  // вероятность 
-            symbols[i].low = low;  // устанавливаем нижнюю границу
-            symbols[i].high = low + prob;  // устанавливаем верхнюю границу
-            low += prob;  // обновляем нижнюю границу
-        } else {
-            symbols[i].low = low;  // сохраняем ту же нижнюю границу
-            symbols[i].high = low;  // верхняя граница должна совпадать с нижней
-        }
-    }
-}
-
-double arithmetic_coding(const unsigned char* memory_ptr, size_t file_size, struct Symbol* symbols) {
-    // интервал для всего файла
-    double low = 0.0;
+void calc_freq_table(const unsigned char* memory_ptr, double freq_table[MAX_COUNT_SYMBOLS][2]) {
+    int length = strlen((const char*)memory_ptr);
     double high = 1.0;
+    double possible;
+    
+    int counts[MAX_COUNT_SYMBOLS] = {0};
 
-    for (size_t i = 0; i < file_size; i++) {
-        double diff = high - low;
+    for (int i = 0; i < length; i++) {
+        counts[(unsigned char)memory_ptr[i]]++;
+    }
 
-        unsigned char symbol_index = memory_ptr[i];  // получаем индекс символа
+    for (int i = 0; i < MAX_COUNT_SYMBOLS; i++) {
+        if (counts[i] > 0) {
+            possible = (double)counts[i] / length;
+            freq_table[i][0] = (high - possible) > 1e-14 ? round_to_decimal(high - possible, 14) : 0;
+            freq_table[i][1] = round_to_decimal(high, 14);
+            high -= possible;
+        }
+    }
+}
 
-        // обновляем интервал
-        if (symbols[symbol_index].high > symbols[symbol_index].low) { // Проверяем, что диапазон не нулевой
-            high = low + diff * symbols[symbol_index].high;
-            low = low + diff * symbols[symbol_index].low;
+size_t arithmetic_coding(const unsigned char* memory_ptr, double freq_table[MAX_COUNT_SYMBOLS][2], unsigned char* encoded_data) {
+    int Low = 0;
+    int High = MAX_SIZE;
+    int bits_to_follow = 1;
+    int index = 0;  // Индекс для записи в буфер encoded_data
+
+    // Для каждого байта входного потока данных memory_ptr
+    for (int i = 0; memory_ptr[i] != '\0'; i++) {
+        unsigned char symbol = memory_ptr[i];
+
+        // Вычисление границ Low и High на основе частот символов
+        int newLow = Low + freq_table[symbol][0] * (High - Low + 1) / MAX_SIZE;
+        int newHigh = Low + freq_table[symbol][1] * (High - Low + 1) / MAX_SIZE;
+        Low = newLow;
+        High = newHigh;
+
+        while (1) {
+            if (High < HALF) {  // Если старший бит 0
+                encoded_data[index++] = '0';
+                bits_to_follow = bits_plus_follow(0, bits_to_follow);
+                Low = bml(Low, 1, MAX_SIZE + 1);
+                High = bmlt(High, 1, MAX_SIZE + 1);
+            } else if (Low >= HALF) {  // Если старший бит 1
+                encoded_data[index++] = '1';
+                bits_to_follow = bits_plus_follow(1, bits_to_follow);
+                Low = bml(Low - HALF, 1, MAX_SIZE + 1);
+                High = bmlt(High - HALF, 1, MAX_SIZE + 1);
+            } else if (Low >= FIRST_QTR && High < THIRD_QTR) {  // Если старшие биты разные
+                bits_to_follow++;
+                Low -= FIRST_QTR;
+                High -= FIRST_QTR;
+                Low = bml(Low, 1, MAX_SIZE + 1);
+                High = bmlt(High, 1, MAX_SIZE + 1);
+            } else {
+                break;
+            }
         }
     }
 
-    return low;
-}
+    // Финальная обработка для Low
+    bits_to_follow++;
+    for (int j = 0; j < bits_to_follow; j++) {
+        if (Low < HALF) {
+            encoded_data[index++] = '0';
+        } else {
+            encoded_data[index++] = '1';
+        }
+        Low = bml(Low, 1, MAX_SIZE + 1);
+    }
 
+    return index;
+}
 
 int add_data_to_archive(struct Archive* arch) {
     // проходимся по всем файлам для записи в архив
@@ -260,21 +318,34 @@ int add_data_to_archive(struct Archive* arch) {
             return 1;
         }
 
-        unsigned char* memory_ptr = (unsigned char*)malloc(arch->files[i].size * sizeof(unsigned char));  // динамически выделяем память под данные файла
+        unsigned char* memory_ptr = (unsigned char*)malloc(arch->files[i].size);  // динамически выделяем память под данные файла
 
         fread(memory_ptr, 1, arch->files[i].size, fin);  // читаем данные из файла
+        memory_ptr[arch->files[i].size] = '\0';
+        fclose(fin);
 
         // алгоритм арифметического кодирования
-        struct Symbol symbols[MAX_COUNT_SYMBOLS];  // вероятности символов
-        calc_symbols_probabilities(memory_ptr, arch->files[i].size, symbols);  // расчет вероятностей символов
+        double freq_table[MAX_COUNT_SYMBOLS][2] = {{0.0}};
+        calc_freq_table(memory_ptr, freq_table);  // расчет таблицы вероятностей символов
 
-        double value = arithmetic_coding(memory_ptr, arch->files[i].size, symbols);  // рассчет значения для кодирования
+        // записываем таблицу вероятностей в файл
+        for (int i = 0; i < MAX_COUNT_SYMBOLS; i++) {
+            fwrite(freq_table[i], sizeof(double), 2, arch->arch_file);
+        }
 
-        fwrite(symbols, sizeof(struct Symbol), MAX_COUNT_SYMBOLS, arch->arch_file);  // записываем вероятности символов в архив
-        fwrite(&value, sizeof(double), 1, arch->arch_file);  // записываем значение для кодирования в архив
+        unsigned char* encoded_data = (unsigned char*)malloc(MAX_SIZE);
+        size_t data_size = arithmetic_coding(memory_ptr, freq_table, encoded_data);  // кодирование данных
+        
+        for(int i = 0; i < data_size; i++) {
+            printf("%d", encoded_data[i]);
+        }
 
+        fwrite(&data_size, sizeof(size_t), 1, arch->arch_file);  // записываем размер кодированных данных
+        fwrite(encoded_data, 1, data_size, arch->arch_file);  // записываем закодированные данные
+
+        // Освобождаем память
         free(memory_ptr);
-        fclose(fin);
+        free(encoded_data);
     }
 
     fclose(arch->arch_file);
@@ -458,33 +529,86 @@ void read_header(struct Extract* extr) {
     fgets(buff, sizeof(buff), extr->arch_file); 
 }
 
-unsigned char find_symbol(struct Symbol* symbols, const double value) {
+unsigned char find_symbol(struct Symbol* symbols, const long double value) {
     for (size_t i = 0; i < MAX_COUNT_SYMBOLS; i++) {
-        if (value >= symbols[i].low - EPSILON && value < symbols[i].high + EPSILON) {
+        if (value >= symbols[i].low && value < symbols[i].high) {
             return (unsigned char)i;
         }       
     }
 
-    return 0;
+    return UCHAR_MAX;
 }
 
-void arithmetic_decoding(unsigned char* memory_ptr, size_t file_size, struct Symbol* symbols, double value) {
-    long double low = 0.0;  // нижняя граница интервала
-    long double high = 1.0;  // верхняя граница интервала
+void arithmetic_decoding(const unsigned char* memory_ptr, int freq_table[MAX_COUNT_SYMBOLS][2], int length, char* decoded_data) {
+    int Low = 0;
+    int High = MAX_SIZE;
+    int index = 0;  // Индекс для чтения bit из memory_ptr
+    int decoded_index = 0;
 
-    for (size_t i = 0; i < file_size; i++) {
-        double diff = high - low;
-        double encod_value = (value - low) / diff; // нормализация закодированного значения
-
-        unsigned char symbol = find_symbol(symbols, encod_value);  // находим символ
-
-        memory_ptr[i] = symbol; // сохраняем декодированный символ
-
-        // обновляем интервал на основе символа
-        high = low + diff * symbols[symbol].high;
-        low = low + diff * symbols[symbol].low;
+    // Преобразуем первые биты закодированной строки в число
+    int value = 0;
+    for (int i = 0; i < BIT_LIMIT; i++) {
+        value = (value << 1) | (memory_ptr[index++] - '0');
     }
+
+    while (decoded_index < length) {  // Декодируем все символы
+        // Вычисляем диапазон и частотное значение
+        int range = High - Low + 1;
+        int freq_value = ((value - Low + 1) * MAX_SIZE - 1) / range;
+
+        // Находим символ на основе freq_value
+        unsigned char symbol;
+        for (symbol = 0; symbol < MAX_COUNT_SYMBOLS; symbol++) {
+            if (freq_value < freq_table[symbol][1]) {
+                break;
+            }
+        }
+
+        // Добавляем символ к декодированным данным
+        decoded_data[decoded_index++] = symbol;
+
+        // Обновляем границы Low и High
+        int newLow = Low + freq_table[symbol][0] * range / MAX_SIZE;
+        int newHigh = Low + freq_table[symbol][1] * range / MAX_SIZE;
+        Low = newLow;
+        High = newHigh;
+
+        // Обрабатываем биты
+        while (High < HALF || Low >= HALF) {
+            if (High < HALF) {
+                Low = 2 * Low;
+                High = 2 * High + 1;
+                if (index < length) {  // Проверяем, что не вышли за пределы данных
+                    value = (value << 1) | (memory_ptr[index++] - '0');
+                } else {
+                    value = (value << 1);  // Если данные закончились, сдвигаем без нового бита
+                }
+            } else if (Low >= HALF) {
+                Low = 2 * (Low - HALF);
+                High = 2 * (High - HALF) + 1;
+                if (index < length) {
+                    value = (value << 1) | (memory_ptr[index++] - '0');
+                } else {
+                    value = (value << 1);
+                }
+            }
+        }
+
+        // Обрабатываем ситуацию, если Low и High попадают в третью четверть
+        while (Low >= FIRST_QTR && High < THIRD_QTR) {
+            Low = 2 * (Low - FIRST_QTR);
+            High = 2 * (High - FIRST_QTR) + 1;
+            if (index < length) {
+                value = (value << 1) | (memory_ptr[index++] - '0');
+            } else {
+                value = (value << 1);
+            }
+        }
+    }
+
+    decoded_data[decoded_index] = '\0';  // Завершаем строку
 }
+
 
 int extract_data(struct Extract* extr) {
     chdir(extr->extract_path);  // переходим в разархивированную директорию 
@@ -503,15 +627,21 @@ int extract_data(struct Extract* extr) {
             return 1;
         }
 
-        struct Symbol symbols[MAX_COUNT_SYMBOLS];  // вероятности символов
-        fread(symbols, sizeof(struct Symbol), MAX_COUNT_SYMBOLS, extr->arch_file);  // читаем вероятности символов из архива
+        int freq_table[MAX_COUNT_SYMBOLS][2] = {{0}};
+        fread(freq_table, sizeof(freq_table), 1, extr->arch_file);  // читаем вероятности символов из архива
 
-        double value;  // значение для декодирования
-        fread(&value, sizeof(double), 1, extr->arch_file);  // читаем значение для декодирования из архива
+        long double value;  // значение для декодирования
+        fread(&value, sizeof(long double), 1, extr->arch_file);  // читаем значение для декодирования из архива
 
-        unsigned char* memory_ptr = (unsigned char*)malloc(extr->files[i].size);  // динамически выделяем память под данные файла
+        unsigned char* memory_ptr = (unsigned char*)malloc(MAX_SIZE);  // динамически выделяем память под закодированные данные файла
+        if (memory_ptr == NULL) {  // Проверка на успешное выделение памяти
+            fprintf(stderr, "Ошибка выделения памяти для разархивации файла %s!\n", extr->files[i].real_path);
+            fclose(fout);
+            return 1; 
+        }
 
-        arithmetic_decoding(memory_ptr, extr->files[i].size, symbols, value);  // декодирование данных
+        unsigned char* decoded_data = (unsigned char*)malloc(extr->files[i].size);
+        arithmetic_decoding(memory_ptr, freq_table, strlen(memory_ptr), decoded_data);  // декодирование данных
 
         fwrite(memory_ptr, 1, extr->files[i].size, fout);  // записываем данные в файл
 

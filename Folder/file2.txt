@@ -1,0 +1,4 @@
+Data of file2.txt
+
+
+Line

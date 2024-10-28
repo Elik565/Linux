@@ -1,0 +1,4 @@
+Data of file.txt in Space folder
+
+
+line

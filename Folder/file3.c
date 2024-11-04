@@ -1,1 +1,0 @@
-Data of file3.c

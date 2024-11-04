@@ -140,6 +140,21 @@ int choose_arch_path(struct Archive* arch) {
     return 0;
 }
 
+int check_for_archive(char* path) {
+    char format[10];
+    size_t len = strlen(path);
+    size_t i = len - 1;
+    size_t j = 0;
+
+    while (path[i] != '.' && i > 0) {
+        format[j] = path[i];
+        i--;
+        j++;
+    }
+
+    return strcmp(format, "tad");
+}
+
 int collect_files_info(const char* dir, char* current_path, struct Archive* arch) {
     DIR* dirptr;
     struct dirent* entry; 
@@ -172,6 +187,17 @@ int collect_files_info(const char* dir, char* current_path, struct Archive* arch
             current_path[cur_path_len] = '\0';  // восстанавливаем текущий путь после рекурсии
         }
         else {
+            if (check_for_archive(entry->d_name) == 0) {  // если нашли внутренний архив
+                arch->int_arch_count++;
+
+                // выделяем память под внутренний архив
+                arch->internal_arch_paths = (char**)realloc(arch->internal_arch_paths, sizeof(char*) * arch->int_arch_count);
+                arch->internal_arch_paths[arch->int_arch_count - 1] = (char*)malloc(strlen(entry->d_name));
+
+                sprintf(arch->internal_arch_paths[arch->int_arch_count - 1], entry->d_name);  // добавляем путь в массив
+                continue;
+            } 
+
             arch->files = realloc(arch->files, (arch->files_count + 1) * sizeof(struct file_info));  // выделяем память под новый файл
     
             arch->files[arch->files_count].size = statbuf.st_size;  // размер файла
@@ -195,13 +221,77 @@ int collect_files_info(const char* dir, char* current_path, struct Archive* arch
     return 0;
 }
 
-void add_header_to_archive(struct Archive* arch) {
+int calc_count_files(struct Archive* arch) {
+    chdir(arch->dir_path);
+    for (size_t i = 0; i < arch->int_arch_count; i++) {
+        FILE* fin = fopen(arch->internal_arch_paths[i], "rb");  // открываем внутренний архив
+
+        if (fin == NULL) {
+            fprintf(stderr, "Ошибка открытия внутреннего архива %s для архивации!\n", arch->internal_arch_paths[i]);
+            return 1;
+        }
+
+        size_t files_count;
+        fscanf(fin, "*****Header*****\n\nThe number of files in the archive: %zu\n", &files_count);  // считываем кол-во файлов во внутреннем архиве
+
+        arch->int_files_count += files_count;  // обновляем количество файлов внешнего архива
+
+        fclose(fin);
+    }   
+
+    return 0;
+}
+
+int arсhive_processing(struct Archive* arch) {
+    chdir(arch->dir_path);  // меняем директорию для открытия внутренних архивов
+
+    size_t files_count;
+    for (size_t i = 0; i < arch->int_arch_count; i++) {
+        FILE* fin = fopen(arch->internal_arch_paths[i], "rb");  // открываем внутренний архив
+
+        if (fin == NULL) {
+            fprintf(stderr, "Ошибка открытия внутреннего архива %s для архивации!\n", arch->internal_arch_paths[i]);
+            return 1;
+        }
+
+        fscanf(fin, "*****Header*****\n\nThe number of files in the archive: %zu\n", &files_count);  // считываем кол-во файлов во внутреннем архиве
+
+        char line[MAX_SIZE_PATH];
+        for (size_t i = 0; i < files_count; i++) {
+            fgets(line, sizeof(line), fin);  // считываем путь 
+            fprintf(arch->arch_file, line);  // записываем путь
+
+            fgets(line, sizeof(line), fin);  // считываем размер
+            fprintf(arch->arch_file, line);  // записываем размер
+        }
+
+        fclose(fin);
+    }   
+
+    chdir("..");
+    
+    return 0;
+}
+
+int add_header_to_archive(struct Archive* arch) {
+    if (calc_count_files(arch) != 0) { // узнаем количество файлов с учетом внутренних архивов
+        return 1;
+    }  
+
     fprintf(arch->arch_file, "*****Header*****\n\n");
-    fprintf(arch->arch_file, "The number of files in the archive: %d\n\n", arch->files_count);
+    fprintf(arch->arch_file, "The number of files in the archive: %d\n\n", arch->files_count + arch->int_files_count);
+
     for (size_t i = 0; i < arch->files_count; i++) {
         fprintf(arch->arch_file, "Path: %s\nSize: %zu\n", arch->files[i].path, arch->files[i].size);
     }
+
+    if (arсhive_processing(arch) != 0) {
+        return 1;
+    }
+
     fprintf(arch->arch_file, "\n*****Files data*****\n\n");
+
+    return 0;
 }
 
 int add_data_to_archive(struct Archive* arch) {
@@ -233,6 +323,9 @@ void archive() {
     struct Archive arch;
     arch.files = malloc(sizeof(struct file_info));
     arch.files_count = 0;
+    arch.int_arch_count = 0;
+    arch.internal_arch_paths = (char**)malloc(arch.int_arch_count * sizeof(char*));
+    arch.int_files_count = 0;
     arch.archiv_path[0] = '\0';
     arch.dir_path[0] = '\0';
     
@@ -256,7 +349,9 @@ void archive() {
     }  
 
     // запись заголовка в архив
-    add_header_to_archive(&arch);
+    if (add_header_to_archive(&arch) != 0) {
+        return;
+    }
 
     // запись данных в архив
     if (add_data_to_archive(&arch) != 0) {

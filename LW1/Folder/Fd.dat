@@ -1,0 +1,15 @@
+*****Header*****
+
+The number of files in the archive: 3
+
+Path: file
+Size: 24
+Path: file1.txt
+Size: 27
+Path: Internal_folder/file.rd
+Size: 35
+
+*****Files data*****
+
+Data of file in archive
+Data of file1.txt in arhiveData of file.rd in Internal_Folder

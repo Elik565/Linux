@@ -40,6 +40,12 @@ struct Archive {
     struct file_info* files;  // информация о файлах директории
 
     size_t files_count;  // количество файлов в директории
+
+    char** internal_arch_paths;  // пути до внутренних архивов
+
+    size_t int_arch_count;  // количество внутренних архивов
+
+    size_t int_files_count;  // количество файлов во внутренних архивах
 };
 
 // Структура разархивации
@@ -78,13 +84,20 @@ void find_folder_name(struct Archive* arch);
 // Выбор пути сохранения архива
 int choose_arch_path(struct Archive* arch);
 
+// Проверка на внутренний архив
+int check_for_archive(char* path);
+
 // Сбор информации о файлах
 int collect_files_info(const char* dir, char* current_path, struct Archive* arch);
 
-// Запись заголовка в архив
-void add_header_to_archive(struct Archive* arch);
+// Добавление количества внутренних файлов архива во внешний
+int calc_count_files(struct Archive* arch);
 
-void build_Huffman_tree(const unsigned char* data);
+// Добавление файлов внутреннего архива во внешний
+int arсhive_processing(struct Archive* arch);
+
+// Запись заголовка в архив
+int add_header_to_archive(struct Archive* arch);
 
 // Запись данных в архив
 int add_data_to_archive(struct Archive* arch);

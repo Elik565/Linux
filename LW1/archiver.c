@@ -242,7 +242,7 @@ int calc_count_files(struct Archive* arch) {
     return 0;
 }
 
-int arсhive_processing(struct Archive* arch) {
+int add_int_header(struct Archive* arch) {
     chdir(arch->dir_path);  // меняем директорию для открытия внутренних архивов
 
     size_t files_count;
@@ -285,7 +285,7 @@ int add_header_to_archive(struct Archive* arch) {
         fprintf(arch->arch_file, "Path: %s\nSize: %zu\n", arch->files[i].path, arch->files[i].size);
     }
 
-    if (arсhive_processing(arch) != 0) {
+    if (add_int_header(arch) != 0) {
         return 1;
     }
 
@@ -294,7 +294,40 @@ int add_header_to_archive(struct Archive* arch) {
     return 0;
 }
 
+int add_int_data(struct Archive* arch) {
+    chdir(arch->dir_path);  // меняем директорию для открытия внутренних архивов
+
+    size_t files_count;
+    // проходимся по всем внутренним архивам
+    for (size_t i = 0; i < arch->int_arch_count; i++) {
+        FILE* fin = fopen(arch->internal_arch_paths[i], "rb");  // открываем внутренний архив
+
+        if (fin == NULL) {
+            fprintf(stderr, "Ошибка открытия внутреннего архива %s для архивации!\n", arch->internal_arch_paths[i]);
+            return 1;
+        }
+
+        char line[MAX_SIZE_PATH];
+        while (fgets(line, sizeof(line), fin)) {
+            if (strstr(line, "*****Files data*****\n") != NULL) 
+                break;
+        }
+        fgets(line, sizeof(line), fin);
+
+        while (fgets(line, sizeof(line), fin) != NULL) {
+            fprintf(arch->arch_file, line);
+        }
+
+        fclose(fin);
+    }   
+
+    chdir("..");
+    
+    return 0;
+}
+
 int add_data_to_archive(struct Archive* arch) {
+    // записываем данные файлов внешнего архива
     for (size_t i = 0; i < arch->files_count; i++) {
         FILE* fin = fopen(arch->files[i].real_path, "rb");
 
@@ -311,6 +344,10 @@ int add_data_to_archive(struct Archive* arch) {
 
         free(memory_ptr);
         fclose(fin);
+    }
+
+    if (add_int_data(arch) != 0) {  // записываем данные файлов внутренних архивов
+        return 1;
     }
 
     fclose(arch->arch_file);

@@ -12,14 +12,14 @@ Path: Space folder/file.txt
 Size: 39
 Path: file1
 Size: 13
-Path: file
-Size: 24
-Path: file1.txt
-Size: 27
+Path: int_file
+Size: 31
+Path: file3.txt
+Size: 32
 Path: Internal_folder/file.rd
-Size: 35
-Path: file.rd
-Size: 35
+Size: 48
+Path: file4.txt
+Size: 25
 
 *****Files data*****
 
@@ -34,4 +34,11 @@ Data of file1 in Folder2
 LineData of file2.txtData of file.txt in Space folder
 
 
-lineData of file1
+lineData of file1Data of int_file in archive Fd
+Data of file3.txt in arhive Fd
+
+Data of file.rd in Internal_Folder in Fd
+
+
+line
+Data of file4.txt in Fd2

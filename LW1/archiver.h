@@ -93,11 +93,14 @@ int collect_files_info(const char* dir, char* current_path, struct Archive* arch
 // Добавление количества внутренних файлов архива во внешний
 int calc_count_files(struct Archive* arch);
 
-// Добавление файлов внутреннего архива во внешний
-int arсhive_processing(struct Archive* arch);
+// Добавление заголовков внутренних архивов во внешний
+int add_int_header(struct Archive* arch);
 
 // Запись заголовка в архив
 int add_header_to_archive(struct Archive* arch);
+
+// Запись данных файлов внутренних архивов во внешний
+int add_data_to_archive(struct Archive* arch);
 
 // Запись данных в архив
 int add_data_to_archive(struct Archive* arch);

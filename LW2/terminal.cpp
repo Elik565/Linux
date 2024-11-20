@@ -1,4 +1,17 @@
 #include "terminal.hpp"
+#include <dirent.h>
+#include <fstream>
+#include <sys/wait.h>
+#include <sys/prctl.h>
+
+pid_t child_pid = 0;
+
+void handle_sigint(int sig) {
+    if (child_pid > 0) {
+        killpg(child_pid, SIGKILL);
+    }
+    std::cout << "\n";
+}
 
 std::string separate_input(std::string& input) {
     int i = 0;
@@ -14,24 +27,38 @@ std::string separate_input(std::string& input) {
         i++;
     }
 
-    input.erase(0, i);
+    input.erase(0, i + 1);
 
     return command;
 }
 
 void start_process(std::string& command, std::string& params) {
-    std::string full_command = command + params;
+    child_pid = fork();  // создаем дочерний процесс
 
-    if (command == "ls" || command == "cat" || command == "nice" || command == "killall") {
-        if ((command == "cat") && params.empty()) {
-            std::cout << "Недостаточно аргументов для команды cat!\n";
-            return;
+    if (child_pid == 0) {
+        setpgid(0, 0);  // создаем группу процессов
+        prctl(PR_SET_PDEATHSIG, SIGKILL);
+
+        if (params.empty()) {
+            execlp(command.c_str(), command.c_str(), nullptr);
         }
 
-        std::system(full_command.c_str());
-    }
-
-    else {
+        else {
+            execlp(command.c_str(), command.c_str(), params.c_str(), nullptr);
+        }
         
+        std::cerr << "Ошибка выполнения команды: " << command << "\n";
+        exit(1);
+    } 
+    else if (child_pid > 0) {
+        setpgid(child_pid, child_pid);  // устанавливаем группу для дочернего процесса
+        int status;
+
+        waitpid(child_pid, &status, 0);  // ожидаем завершения дочернего процесса
+        child_pid = 0;  // сбрасываем PID после завершения
+    } 
+    else {
+        std::cerr << "Ошибка создания дочернего процесса\n";
     }
 }
+

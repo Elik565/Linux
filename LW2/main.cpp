@@ -1,7 +1,11 @@
 #include <iostream>
 #include "terminal.hpp"
+#include <csignal>
+#include <sys/wait.h>
 
 int main() {
+    std::signal(SIGINT, handle_sigint);
+
     std::cout << "My_Terminal\n\n";
 
     std::string input;

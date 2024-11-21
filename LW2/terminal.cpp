@@ -57,18 +57,15 @@ void start_not_default_process(const std::string& command, const std::vector<cha
 
     if (child_pid == 0) {  // если мы в дочернем процессе
         setpgid(0, 0);  // создаем группу процессов
-        prctl(PR_SET_PDEATHSIG, SIGKILL);
+        prctl(PR_SET_PDEATHSIG, SIGKILL);  // если завершится родительский процесс, то завершаем и дочерний
 
         if (command.empty()) {
             exit(0);
         }
 
         else {
-            execvp(command.c_str(), params.data());
+            execvp(command.c_str(), params.data());  // запуск команды
         }
-        
-        std::cerr << "Ошибка выполнения команды" << command << "\n";
-        exit(1);
     } 
     else if (child_pid > 0) {
         setpgid(child_pid, child_pid);  // устанавливаем группу для дочернего процесса
@@ -82,12 +79,29 @@ void start_not_default_process(const std::string& command, const std::vector<cha
     }
 }
 
+void default_command_handler(const std::string& command, const std::vector<char*>& params) {
+    if (command == "cat") {
+        
+    }
+}
+
 void start_process(const std::string& command, const std::vector<char*>& params) {
     // обработка команд по умолчанию
-    if (command == "cat") {
+    if (command == "cat" || command == "ls" || command == "nice" || command == "killall") {
+        child_pid = fork();
 
+        if (child_pid == 0) {
+            default_command_handler(command, params);  // запускаем обработчик команд по умолчанию
+        }
+        else if (child_pid > 0) {
+            signal(SIGINT, handle_sigint);
+            int status;
+            waitpid(child_pid, &status, 0);  // ожидаем завершения дочернего процесса
+            child_pid = 0;  // сбрасываем PID после завершения
+        }
     }
 
+    // обработка команд не по умолчанию
     else {
         start_not_default_process(command, params);
     }

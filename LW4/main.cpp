@@ -9,7 +9,6 @@
 #include <iostream>
 
 int main() {
-    std::cout << "a;skdja;kg";
     int width, height, channels;
     std::vector<int> threads = {1, 2, 4, 8, 16, 32};  // массив кол-во потоков
     
@@ -26,21 +25,20 @@ int main() {
         size_t start_row = 1;
         size_t end_row = rows;
 
-        pthread_t threads_list[threads[count_threads]];  // массив потоков
+        pthread_t threads_list[count_threads];  // массив потоков
+
+        ThreadData threads_data[count_threads];  // массив данных потоков
 
         for (size_t j = 0; j < count_threads; j++) {  // проходимся по всем потокам
-            pthread_t thread;  // поток
-
             // заполняем струткуру данных потока
-            ThreadData thread_data;
-            thread_data.start_row = start_row;
-            thread_data.end_row = end_row;
-            thread_data.height = height;
-            thread_data.width = width;
-            thread_data.input_img = input_img;
-            thread_data.output_img = output_img;
+            threads_data[j].start_row = start_row;
+            threads_data[j].end_row = end_row;
+            threads_data[j].height = height;
+            threads_data[j].width = width;
+            threads_data[j].input_img = input_img;
+            threads_data[j].output_img = output_img;
 
-            pthread_create(&thread, nullptr, applySobelFilter, &thread_data);
+            pthread_create(&threads_list[j], nullptr, applySobelFilter, &threads_data[j]);
 
             // обновляем строки
             start_row = end_row ;

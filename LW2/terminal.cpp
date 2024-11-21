@@ -36,12 +36,19 @@ std::string separate_input(std::string& input) {
 }
 
 void start_process(std::string& command, std::string& params) {
+    if (command == "sudo") {
+        std::string full = command + ' ' + params;
+        std::system(command.c_str());
+    }
     child_pid = fork();  // создаем дочерний процесс
 
     if (child_pid == 0) {
         setpgid(0, 0);  // создаем группу процессов
         prctl(PR_SET_PDEATHSIG, SIGKILL);
 
+        if (command.empty()) {
+            exit(1);
+        }
         if (params.empty()) {
             execlp(command.c_str(), command.c_str(), nullptr);
         }

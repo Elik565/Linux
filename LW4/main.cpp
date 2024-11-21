@@ -11,7 +11,7 @@ int main() {
 
     std::vector<int> threads = {1, 2, 4, 8, 16, 32};  // массив кол-ва потоков
     
-    image_data.image = stbi_load("Barry.jpeg", &image_data.width, &image_data.height, &image_data.channels, 1);  // загрузка изображения
+    image_data.image = stbi_load("mai.png", &image_data.width, &image_data.height, &image_data.channels, 1);  // загрузка изображения
 
     unsigned char* output_img = main_algorithm(threads, image_data);  // применяем основной алгоритм
 

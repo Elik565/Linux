@@ -18,10 +18,19 @@ int main() {
             break;
         }
 
-        std::string command = separate_input(input);
+        // получаем команду и параметры
+        std::vector<std::string> params;
+        std::string command = separate_input(input, params);
 
-        start_process(command, input);
-     }
+        // переделываем строки в char*
+        std::vector<char*> exec_params;
+        for (auto str : params) {
+            exec_params.push_back(const_cast<char*>(str.c_str()));
+        }
+        exec_params.push_back(nullptr);  // для окончания параметров
+        
+        start_process(command, exec_params);
+    }
 
     return 0;
 }

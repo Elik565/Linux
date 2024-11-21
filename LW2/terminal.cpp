@@ -7,16 +7,16 @@
 pid_t child_pid = 0;
 
 void handle_sigint(int sig) {
-    if (child_pid > 0) {
+    if (child_pid > 0) {  // если запущен дочерний процесс
         killpg(child_pid, SIGKILL);
     }
-    else {
-        exit(0);
+    else {  // если нет дочернего процесса
+        exit(0);  // завершаем родительский процесс
     }
     std::cout << "\n";
 }
 
-std::string separate_input(std::string& input) {
+std::string separate_input(std::string& input, std::vector<std::string>& params) {
     int i = 0;
 
     while (input[i] == ' ') {  // пропускаем начальные пробелы
@@ -30,34 +30,44 @@ std::string separate_input(std::string& input) {
         i++;
     }
 
-    input.erase(0, i + 1);
+    input.erase(0, i + 1);  // очищаем ввод от команды
+
+    // заполняем массив параметров
+    i = 0;
+    std::string param;
+    while (i <= input.size()) {
+        if (input[i] == ' ' || i == input.size()) {
+            if (!param.empty()) {
+                params.push_back(param);
+                param.clear();
+            }
+        }
+        else {
+            param += input[i];
+        }
+
+        i++;
+    }
 
     return command;
 }
 
-void start_process(std::string& command, std::string& params) {
-    if (command == "sudo") {
-        std::string full = command + ' ' + params;
-        std::system(command.c_str());
-    }
+void start_not_default_process(const std::string& command, const std::vector<char*>& params) {
     child_pid = fork();  // создаем дочерний процесс
 
-    if (child_pid == 0) {
+    if (child_pid == 0) {  // если мы в дочернем процессе
         setpgid(0, 0);  // создаем группу процессов
         prctl(PR_SET_PDEATHSIG, SIGKILL);
 
         if (command.empty()) {
-            exit(1);
-        }
-        if (params.empty()) {
-            execlp(command.c_str(), command.c_str(), nullptr);
+            exit(0);
         }
 
         else {
-            execlp(command.c_str(), command.c_str(), params.c_str(), nullptr);
+            execvp(command.c_str(), params.data());
         }
         
-        std::cerr << "Ошибка выполнения команды: " << command << "\n";
+        std::cerr << "Ошибка выполнения команды" << command << "\n";
         exit(1);
     } 
     else if (child_pid > 0) {
@@ -69,6 +79,17 @@ void start_process(std::string& command, std::string& params) {
     } 
     else {
         std::cerr << "Ошибка создания дочернего процесса\n";
+    }
+}
+
+void start_process(const std::string& command, const std::vector<char*>& params) {
+    // обработка команд по умолчанию
+    if (command == "cat") {
+
+    }
+
+    else {
+        start_not_default_process(command, params);
     }
 }
 

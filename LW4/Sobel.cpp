@@ -50,3 +50,43 @@ void* applySobelFilter(void* arg) {
 
     pthread_exit(nullptr);
 }
+
+unsigned char* main_algorithm(const std::vector<int>& threads, const ImageData& image_data) {
+    unsigned char* output_img = new unsigned char[image_data.width * image_data.height * image_data.channels];  // изображение на выходе
+
+    // основной алгортитм
+    for (size_t i = 0; i < threads.size(); i++) {  // проходимся по всем количествам потоков
+        size_t count_threads = threads[i];  // кол-во потоков
+
+        size_t rows = (image_data.height - 1) / count_threads;
+
+        size_t start_row = 1;
+        size_t end_row = rows;
+
+        pthread_t threads_list[count_threads];  // массив потоков
+
+        ThreadData threads_data[count_threads];  // массив данных потоков
+
+        for (size_t j = 0; j < count_threads; j++) {  // проходимся по всем потокам
+            // заполняем струткуру данных потока
+            threads_data[j].start_row = start_row;
+            threads_data[j].end_row = end_row;
+            threads_data[j].height = image_data.height;
+            threads_data[j].width = image_data.width;
+            threads_data[j].input_img = image_data.image;
+            threads_data[j].output_img = output_img;
+
+            pthread_create(&threads_list[j], nullptr, applySobelFilter, &threads_data[j]);  // создаем процесс
+
+            // обновляем строки
+            start_row = end_row ;
+            end_row += rows;
+        }
+
+        // ожидание завершения всех потоков (блокируется основной поток)
+        for(size_t j = 0; j < threads[i]; j++)
+		    pthread_join(threads_list[j], nullptr);
+    }
+
+    return output_img;
+}

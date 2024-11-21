@@ -8,6 +8,8 @@
                 "-fdiagnostics-color=always",
                 "-g",
                 "${file}",
+                "${fileDirname}/Sobel.cpp",
+                //"${fileDirname}/stb_image-master/deprecated/stb_image.c",
                 "-o",
                 "${fileDirname}/${fileBasenameNoExtension}"
             ],

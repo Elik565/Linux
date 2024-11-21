@@ -7,9 +7,9 @@
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
+                "-std=c++11",
                 "${file}",
                 "${fileDirname}/Sobel.cpp",
-                //"${fileDirname}/stb_image-master/deprecated/stb_image.c",
                 "-o",
                 "${fileDirname}/${fileBasenameNoExtension}"
             ],

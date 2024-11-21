@@ -4,6 +4,7 @@
 #include <math.h>
 #include <chrono>
 #include <pthread.h>
+#include <iostream>
 
 // Функция для применения фильтра Собела к изображению
 void* applySobelFilter(void* arg) {
@@ -56,11 +57,13 @@ unsigned char* main_algorithm(const std::vector<int>& threads, const ImageData& 
 
     // основной алгортитм
     for (size_t i = 0; i < threads.size(); i++) {  // проходимся по всем количествам потоков
+        auto start = std::chrono::steady_clock::now();  
+
         size_t count_threads = threads[i];  // кол-во потоков
 
         size_t rows = (image_data.height - 1) / count_threads;
 
-        size_t start_row = 1;
+        size_t start_row = 0;
         size_t end_row = rows;
 
         pthread_t threads_list[count_threads];  // массив потоков
@@ -84,8 +87,14 @@ unsigned char* main_algorithm(const std::vector<int>& threads, const ImageData& 
         }
 
         // ожидание завершения всех потоков (блокируется основной поток)
-        for(size_t j = 0; j < threads[i]; j++)
+        for(size_t j = 0; j < threads[i]; j++) {
 		    pthread_join(threads_list[j], nullptr);
+        }
+
+        auto end = std::chrono::steady_clock::now();
+        auto elapsed_ms = std::chrono::duration<float, std::milli>(end - start);
+
+        std::cout << "Время работы алгоритма с кол-вом потоков = " << threads[i] << " составило: " << elapsed_ms.count() << "мс\n";
     }
 
     return output_img;

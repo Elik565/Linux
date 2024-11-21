@@ -10,6 +10,9 @@ void handle_sigint(int sig) {
     if (child_pid > 0) {
         killpg(child_pid, SIGKILL);
     }
+    else {
+        exit(0);
+    }
     std::cout << "\n";
 }
 

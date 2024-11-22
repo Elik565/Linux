@@ -4,6 +4,7 @@
 #include <sys/wait.h>
 #include <sys/prctl.h>
 #include <filesystem>
+#include <sys/resource.h>
 
 namespace fs = std::filesystem;
 
@@ -131,6 +132,36 @@ void ls_handler(const std::vector<char*>& params) {
     exit(0);
 }
 
+void nice_handler(const std::vector<char*>& params) {
+    int niceness = 10;  // значение приоритета по умолчанию
+
+    if (params.size() == 1)  // если нет параметров
+        std::cout << '0' << std::endl;
+
+    else {
+        if (std::string(params[0]) == "-n") {  // если есть флаг
+            if (params.size() == 2 or params.size() == 3) {
+                std::cout << "Недостаточно аргументов для команды nice" << std::endl;
+                exit(0);
+            }
+            
+            // проверка значения приоритета
+            niceness = std::stoi(params[1]);
+            if (niceness < -20) {
+                niceness = -20;
+            }
+            else if (niceness > 19) {
+                niceness = 19;
+            }
+        }
+
+        
+    }
+
+    std::cout << std::endl;
+    exit(0);
+}
+
 void start_process(const std::string& command, const std::vector<char*>& params) {
     child_pid = fork();  // создаем дочерний процесс
 
@@ -148,6 +179,10 @@ void start_process(const std::string& command, const std::vector<char*>& params)
 
         else if (command == "ls") {
             ls_handler(params);
+        }
+
+        else if (command == "nice") {
+            nice_handler(params);
         }
         
         else {

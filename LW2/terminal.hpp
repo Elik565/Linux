@@ -18,5 +18,8 @@ void cat_handler(const std::vector<char*>& params);
 // Обработчик команды ls
 void ls_handler(const std::vector<char*>& params);
 
+// Обработчик команды nice
+void nice_handler(const std::vector<char*>& params);
+
 // Запуск процессов по умолчанию
 void start_process(const std::string& command, const std::vector<char*>& params);

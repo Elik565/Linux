@@ -4,7 +4,7 @@
 #include <sys/wait.h>
 
 int main() {
-    std::signal(SIGINT, handle_sigint);
+    std::signal(SIGINT, handle_sigint);  // установка обработчика сигнала прерывания
 
     std::cout << "My_Terminal\n\n";
 

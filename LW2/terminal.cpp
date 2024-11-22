@@ -3,6 +3,9 @@
 #include <fstream>
 #include <sys/wait.h>
 #include <sys/prctl.h>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 pid_t child_pid = 0;
 
@@ -55,7 +58,7 @@ std::string separate_input(std::string& input, std::vector<std::string>& params)
 void cat_handler(const std::vector<char*>& params) {
     char buff[512];
 
-    if (params.size() == 1) {
+    if (params.size() == 1) {  // елси нет параметров
         while (true) {
             std::cin >> buff;
             std::cout << buff << std::endl;
@@ -78,6 +81,56 @@ void cat_handler(const std::vector<char*>& params) {
     exit(0);
 }
 
+void ls_handler(const std::vector<char*>& params) {
+    std::string param;
+    if (params.size() == 1) {  // если нет параметров
+        param = fs::current_path();
+
+        size_t i = 0;
+        for (const auto& entry : fs::directory_iterator(param)) {  // перебираем все файлы в текущей папке
+            if (i == 4) {  // в строку выводим только 4 элемента
+                std::cout << std::endl;
+                i = 0;
+            }
+            std::cout << entry.path().filename().string() << " ";
+            i++;
+        }
+    }
+
+    else {  // если есть параметры
+        for (size_t i = 0; i < params.size() - 1; i++) {
+            param = params[i];
+
+            if (fs::exists(param) && fs::is_directory(param)) {  // если путь существует и это папка
+                std::cout << param << ":\n";
+                size_t i = 0;
+                for (const auto& entry : fs::directory_iterator(param)) {  // перебираем все файлы в папке
+                    if (i == 4) {  // в строку выводим только 4 элемента
+                        std::cout << "\n";
+                        i = 0;
+                    }
+                    std::cout << entry.path().filename().string() << " ";
+                    i++;
+                }
+                std::cout << std::endl;
+            }
+
+            else if (fs::exists(param)) {  // если путь существует и это не папка
+                std::cout << param;
+            }
+
+            else {
+                std::cout << "Нет такого файла или директории";
+            }
+
+            std::cout << std::endl;
+        }
+    }
+
+    std::cout << std::endl;
+    exit(0);
+}
+
 void start_process(const std::string& command, const std::vector<char*>& params) {
     child_pid = fork();  // создаем дочерний процесс
 
@@ -91,6 +144,10 @@ void start_process(const std::string& command, const std::vector<char*>& params)
 
         else if (command == "cat") {
             cat_handler(params);
+        }
+
+        else if (command == "ls") {
+            ls_handler(params);
         }
         
         else {

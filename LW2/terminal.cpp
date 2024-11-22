@@ -52,7 +52,33 @@ std::string separate_input(std::string& input, std::vector<std::string>& params)
     return command;
 }
 
-void start_not_default_process(const std::string& command, const std::vector<char*>& params) {
+void cat_handler(const std::vector<char*>& params) {
+    char buff[512];
+
+    if (params.size() == 1) {
+        while (true) {
+            std::cin >> buff;
+            std::cout << buff << std::endl;
+        }
+    } 
+
+    else {
+        for (size_t i = 0; i < params.size() - 1; i++) {
+            FILE* fin = fopen(params[i], "r");
+
+            while (fgets(buff, sizeof(buff), fin)) { // Читаем построчно
+                std::cout << buff;  // Выводим строку
+            }
+
+            fclose(fin);
+            buff[0] = '\0';
+        }
+    }
+
+    exit(0);
+}
+
+void start_process(const std::string& command, const std::vector<char*>& params) {
     child_pid = fork();  // создаем дочерний процесс
 
     if (child_pid == 0) {  // если мы в дочернем процессе
@@ -63,6 +89,10 @@ void start_not_default_process(const std::string& command, const std::vector<cha
             exit(0);
         }
 
+        else if (command == "cat") {
+            cat_handler(params);
+        }
+        
         else {
             execvp(command.c_str(), params.data());  // запуск команды
         }
@@ -76,34 +106,6 @@ void start_not_default_process(const std::string& command, const std::vector<cha
     } 
     else {
         std::cerr << "Ошибка создания дочернего процесса\n";
-    }
-}
-
-void default_command_handler(const std::string& command, const std::vector<char*>& params) {
-    if (command == "cat") {
-        
-    }
-}
-
-void start_process(const std::string& command, const std::vector<char*>& params) {
-    // обработка команд по умолчанию
-    if (command == "cat" || command == "ls" || command == "nice" || command == "killall") {
-        child_pid = fork();
-
-        if (child_pid == 0) {
-            default_command_handler(command, params);  // запускаем обработчик команд по умолчанию
-        }
-        else if (child_pid > 0) {
-            signal(SIGINT, handle_sigint);
-            int status;
-            waitpid(child_pid, &status, 0);  // ожидаем завершения дочернего процесса
-            child_pid = 0;  // сбрасываем PID после завершения
-        }
-    }
-
-    // обработка команд не по умолчанию
-    else {
-        start_not_default_process(command, params);
     }
 }
 

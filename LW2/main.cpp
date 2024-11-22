@@ -25,11 +25,19 @@ int main() {
         // переделываем строки в char*
         std::vector<char*> exec_params;
         for (auto str : params) {
-            exec_params.push_back(const_cast<char*>(str.c_str()));
+            char* cstr = new char[str.size() + 1];
+            std::copy(str.begin(), str.end(), cstr);
+            cstr[str.size()] = '\0';
+            exec_params.push_back(cstr);
         }
         exec_params.push_back(nullptr);  // для окончания параметров
         
         start_process(command, exec_params);
+
+        // очищаем память от указателей
+        for (char* str : exec_params) {
+            delete[] str; 
+        }
     }
 
     return 0;

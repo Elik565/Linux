@@ -1,10 +1,11 @@
 #include "terminal.hpp"
-#include <dirent.h>
 #include <fstream>
 #include <sys/wait.h>
 #include <sys/prctl.h>
 #include <filesystem>
 #include <sys/resource.h>
+#include <algorithm>
+#include <iostream>
 
 namespace fs = std::filesystem;
 
@@ -58,9 +59,8 @@ void cat_handler(const std::vector<char*>& params) {
     char buff[512];
 
     if (params.size() == 2) {  // если нет параметров
-        while (true) {
-            std::cin >> buff;
-            std::cout << buff << "\n";
+        while (fgets(buff, sizeof(buff), stdin)) {  // Читаем построчно
+            std::cout << buff;  // Выводим строку
         }
     } 
 
@@ -160,10 +160,7 @@ void nice_handler(const std::vector<char*>& params) {
 
         if (child_pid == 0) {  // если мы в дочернем процессе
             setpgid(0, 0);  // создаем группу процессов
-            prctl(PR_SET_PDEATHSIG, SIGKILL);  // если завершится родительский процесс, то завершаем и дочерний
-
-            setpriority(PRIO_PROCESS, 0, niceness);  // устанавливаем приоритет
-
+            
             // заполняем команду и параметры для запускаемого процесса
             size_t i = 1;
             if (n_flag) {
@@ -183,6 +180,12 @@ void nice_handler(const std::vector<char*>& params) {
             std::string child_command = std::string(params[i]);
             std::vector<char*> child_params(params.begin() + i, params.end()); 
 
+            if (child_command != "firefox") {  // firefox не создает дочерних процессов
+                prctl(PR_SET_PDEATHSIG, SIGKILL);  // если завершится родительский процесс, то завершаем и дочерний
+            }
+
+            setpriority(PRIO_PROCESS, 0, niceness);  // устанавливаем приоритет
+
             execvp(child_command.c_str(), child_params.data());
         }
 
@@ -195,6 +198,48 @@ void nice_handler(const std::vector<char*>& params) {
     }
 
     std::cout << std::endl;
+    exit(0);
+}
+
+void killall_handler(const std::vector<char*>& params) {
+    if (params.size() == 2) {  // если нет параметров
+        std::cout << "Недостаточно параметров для команды killall" << std::endl;
+        exit(1);
+    }
+
+    for (size_t i = 1; i < params.size() - 1; i++) {  // проходимся по всем параметрам
+        const std::string proc_path = "/proc";  // путь к папке /proc
+
+        for (const auto& entry : fs::directory_iterator(proc_path)) {  // проходимся по папке /proc
+            // проверяем, что это директория
+            if (!entry.is_directory())
+                continue;
+
+            // проверяем, что имя директории - это число
+            std::string dir_name = entry.path().filename();
+            if (!std::all_of(dir_name.begin(), dir_name.end(), ::isdigit))
+                continue;
+
+            pid_t pid = std::stoi(dir_name);
+            
+            std::string exe_file = entry.path().string() + "/exe";
+
+            char exe_path[4096];
+            ssize_t len = readlink(exe_file.c_str(), exe_path, sizeof(exe_path) - 1);
+            if (len != -1) {
+                exe_path[len] = '\0';
+                std::string process_name = std::string(exe_path);
+
+                // Сравниваем с полным путем
+                if (process_name.find(params[i]) != std::string::npos) {
+                    if (kill(pid, SIGTERM) != 0) {
+                        std::cerr << "Не удалось завершить процесс " << pid << "\n";
+                    }
+                }
+            }
+        }
+    }
+
     exit(0);
 }
 
@@ -221,6 +266,10 @@ void start_process(const std::string& command, const std::vector<char*>& params)
             nice_handler(params);
         }
         
+        else if (command == "killall") {
+            killall_handler(params);
+        }
+
         else {
             execvp(command.c_str(), params.data());  // запуск команды
         }

@@ -36,6 +36,7 @@ void read_and_output_file(const std::string& file_path, const std::string& fifo_
 }
 
 int main(int argc, char* argv[]) {
+
     if (argc != 3) {
         std::cout << "Неправильные входные парметры для программы 1\n";
         exit(1);

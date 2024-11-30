@@ -33,6 +33,7 @@ void xor_output_data(const std::string& fifo1_path, const std::string& fifo2_pat
 
     char buff1[512], buff2[512];
     size_t readed_bytes1, readed_bytes2;
+    size_t old_readed_bytes2;
 
     while (true) {
         pthread_mutex_lock(&mutex);  // захват мьютекса (блокирование каналов FIFO)
@@ -47,11 +48,25 @@ void xor_output_data(const std::string& fifo1_path, const std::string& fifo2_pat
             break; 
         }
 
-        size_t bytes_to_process = std::min(readed_bytes1, readed_bytes2);
+        if (readed_bytes2 == 0) {  // если во втором канале закончились данные, а в первом нет
+            readed_bytes2 = old_readed_bytes2;
+        }
+        else {
+            old_readed_bytes2 = readed_bytes2;
+        }
 
-        for (size_t i = 0; i < bytes_to_process; i++) {  // побитовая опепация xor с выходными данными
-            char xor_byte = buff1[i] ^ buff2[i];
+        size_t bytes_to_process = std::max(readed_bytes1, readed_bytes2);
+
+        // побитовая опепация xor с выходными данными
+        size_t j = 0;
+        for (size_t i = 0; i < bytes_to_process; i++) {
+            if (j >= readed_bytes2) 
+                j = 0;
+
+            char xor_byte = buff1[i] ^ buff2[j];
             fout << xor_byte;
+            readed_bytes1--;
+            j++;
         }
     }
 

@@ -28,7 +28,7 @@ void read_and_output_file(const std::string& file_path, const std::string& fifo_
     while (fin.read(buff, sizeof(buff)) || fin.gcount() > 0) {
         pthread_mutex_lock(&mutex);  // захват мьютекса (блокирование FIFO)
         write(fifo_fd, buff, fin.gcount());  // gcount() выдает кол-во символов, прочитанных последний раз
-        pthread_mutex_unlock(&mutex);  // освобождаем мьютекс (ресурс)
+        pthread_mutex_unlock(&mutex);  // освобождаем мьютекс (FIFO)
     }
 
     close(fifo_fd);  // закрываем канал FIFO

@@ -24,7 +24,7 @@ void xor_output_data(const std::string& fifo1_path, const std::string& fifo2_pat
         exit(1);
     }
 
-    std::ofstream fout(output_file);
+    std::ofstream fout(output_file);  // открываем файл для записи результата
 
     if (!fout) {
         std::cerr << "Ошибка при открытии файла для записи\n";
@@ -35,26 +35,27 @@ void xor_output_data(const std::string& fifo1_path, const std::string& fifo2_pat
     size_t readed_bytes1, readed_bytes2;
 
     while (true) {
-        pthread_mutex_lock(&mutex);
+        pthread_mutex_lock(&mutex);  // захват мьютекса (блокирование каналов FIFO)
 
         readed_bytes1 = read(fifo1_fd, buff1, sizeof(buff1));
 
         readed_bytes2 = read(fifo2_fd, buff2, sizeof(buff2));   
 
-        pthread_mutex_unlock(&mutex);
+        pthread_mutex_unlock(&mutex);  // освобождение мьютекса (каналов FIFO)
 
-        if (readed_bytes1 == 0 and readed_bytes2 == 0) {
+        if (readed_bytes1 == 0 and readed_bytes2 == 0) {  // если нет данных в обоих каналах
             break; 
         }
 
         size_t bytes_to_process = std::min(readed_bytes1, readed_bytes2);
 
-        for (size_t i = 0; i < bytes_to_process; i++) {
+        for (size_t i = 0; i < bytes_to_process; i++) {  // побитовая опепация xor с выходными данными
             char xor_byte = buff1[i] ^ buff2[i];
             fout << xor_byte;
         }
     }
 
+    // закрываем каналы
     close(fifo1_fd);
     close(fifo2_fd);
 }
@@ -86,7 +87,7 @@ int main(int argc, char* argv[]) {
 
     xor_output_data(fifo1_path, fifo2_path, argv[3]);
 
-    // закрываем каналы FIFO
+    // удаление каналов из файловой системы
     unlink(fifo1_path.c_str());
     unlink(fifo2_path.c_str());
 

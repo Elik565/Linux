@@ -9,6 +9,17 @@
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
+bool data_ready_fifo1 = false;
+bool data_ready_fifo2 = false;
+
+void sigusr1_handler(int sig) {
+    data_ready_fifo1 = true;  // устанавливаем флаг, что данные в FIFO1 готовы
+}
+
+void sigusr2_handler(int sig) {
+    data_ready_fifo2 = true;  // устанавливаем флаг, что данные в FIFO2 готовы
+}
+
 void xor_output_data(const std::string& fifo1_path, const std::string& fifo2_path, const std::string& output_file) {
     // открываем канал FIFO1 только для чтения
     int fifo1_fd = open(fifo1_path.c_str(), O_RDONLY);  // ждем появления данных в канале fifo1
@@ -36,6 +47,12 @@ void xor_output_data(const std::string& fifo1_path, const std::string& fifo2_pat
     size_t old_readed_bytes2;
 
     while (true) {
+        while (!data_ready_fifo1 && !data_ready_fifo2) {
+            pause();  // ждем сигнала
+        }
+
+        std::cout << "Программа 2 получила сигналы\n";
+        
         pthread_mutex_lock(&mutex);  // захват мьютекса (блокирование каналов FIFO)
 
         readed_bytes1 = read(fifo1_fd, buff1, sizeof(buff1));
@@ -81,6 +98,10 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
+    // устанавливаем обработчики сигналов
+    signal(SIGUSR1, sigusr1_handler);
+    signal(SIGUSR2, sigusr2_handler);
+
     std::string fifo1_path = "/tmp/fifo1";  // первый канал FIFO
     std::string fifo2_path = "/tmp/fifo2";  // второй канал FIFO
 
@@ -90,13 +111,15 @@ int main(int argc, char* argv[]) {
 
     pid_t pid1 = fork();
     if (pid1 == 0) {  // если находимся в дочернем процессе
-        execlp("./Program1", "./Program1", argv[1], fifo1_path.c_str(), NULL);  // запускаем программу 1 с текстовым файлом
+        // запускаем программу 1 с текстовым файлом
+        execlp("./Program1", "./Program1", argv[1], fifo1_path.c_str(), std::to_string(SIGUSR1).c_str(), NULL);  
         exit(0);
     }
 
     pid_t pid2 = fork();
     if (pid2 == 0) {  // если находимся в дочернем процессе
-        execlp("./Program1", "./Program1", argv[2], fifo2_path.c_str(), NULL);  // запускаем программу 1 со случайной последовательностью
+        // запускаем программу 1 со случайной последовательностью
+        execlp("./Program1", "./Program1", argv[2], fifo2_path.c_str(), std::to_string(SIGUSR2).c_str(), NULL);  
         exit(0);
     }
 

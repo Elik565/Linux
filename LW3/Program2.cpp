@@ -9,8 +9,8 @@
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-bool data_ready_fifo1 = false;
-bool data_ready_fifo2 = false;
+volatile bool data_ready_fifo1 = false;
+volatile bool data_ready_fifo2 = false;
 
 void sigusr1_handler(int sig) {
     data_ready_fifo1 = true;  // устанавливаем флаг, что данные в FIFO1 готовы
@@ -20,7 +20,23 @@ void sigusr2_handler(int sig) {
     data_ready_fifo2 = true;  // устанавливаем флаг, что данные в FIFO2 готовы
 }
 
-void xor_output_data(const std::string& fifo1_path, const std::string& fifo2_path, const std::string& output_file) {
+void sigterm_handler(int sig) {
+    std::cerr << "Программа 1 сообщила об ошибке и завершилась\n";
+    std::cerr << "Программа 2 преждевременно завершилась\n";
+
+    unlink("/tmp/fifo1");
+    unlink("/tmp/fifo2");
+    exit(1);
+}
+
+void xor_output_data(const std::string& fifo1_path, const std::string& fifo2_path, const std::string& output_file,
+                     const pid_t pid1, const pid_t pid2) {
+
+    std::cout << "Программа 2 отправила сигналы о начале чтения\n";
+    sleep(1);
+    kill(pid1, SIGUSR1);
+    kill(pid2, SIGUSR1);
+
     // открываем канал FIFO1 только для чтения
     int fifo1_fd = open(fifo1_path.c_str(), O_RDONLY);  // ждем появления данных в канале fifo1
     if (fifo1_fd == -1) {
@@ -48,10 +64,13 @@ void xor_output_data(const std::string& fifo1_path, const std::string& fifo2_pat
 
     while (true) {
         while (!data_ready_fifo1 && !data_ready_fifo2) {
-            pause();  // ждем сигнала
+            pause();  // ждем сигналов
         }
 
         std::cout << "Программа 2 получила сигналы\n";
+
+        data_ready_fifo1 = false;
+        data_ready_fifo2 = false;
         
         pthread_mutex_lock(&mutex);  // захват мьютекса (блокирование каналов FIFO)
 
@@ -85,6 +104,10 @@ void xor_output_data(const std::string& fifo1_path, const std::string& fifo2_pat
             readed_bytes1--;
             j++;
         }
+
+        std::cout << "Программа 2 отправила сигналы\n";
+        kill(pid1, SIGUSR1);
+        kill(pid2, SIGUSR1);
     }
 
     // закрываем каналы
@@ -101,6 +124,7 @@ int main(int argc, char* argv[]) {
     // устанавливаем обработчики сигналов
     signal(SIGUSR1, sigusr1_handler);
     signal(SIGUSR2, sigusr2_handler);
+    signal(SIGTERM, sigterm_handler);
 
     std::string fifo1_path = "/tmp/fifo1";  // первый канал FIFO
     std::string fifo2_path = "/tmp/fifo2";  // второй канал FIFO
@@ -123,7 +147,7 @@ int main(int argc, char* argv[]) {
         exit(0);
     }
 
-    xor_output_data(fifo1_path, fifo2_path, argv[3]);
+    xor_output_data(fifo1_path, fifo2_path, argv[3], pid1, pid2);
 
     // удаление каналов из файловой системы
     unlink(fifo1_path.c_str());

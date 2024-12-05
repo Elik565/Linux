@@ -5,6 +5,7 @@
 
 int main() {
     std::signal(SIGINT, handle_sigint);  // установка обработчика сигнала прерывания
+    std::signal(SIGTSTP, handle_sigtstp);  // установка обработчика сигнала приостановки процесса
 
     std::cout << "My_Terminal\n\n";
 

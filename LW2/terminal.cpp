@@ -10,6 +10,7 @@
 namespace fs = std::filesystem;
 
 pid_t child_pid = 0;
+pid_t stopped_pid = 0;
 
 void handle_sigint(int sig) {
     if (child_pid > 0) {  // если запущен дочерний процесс
@@ -19,6 +20,18 @@ void handle_sigint(int sig) {
         exit(0);  // завершаем родительский процесс
     }
     std::cout << "\n";
+}
+
+void handle_sigtstp(int sig) {
+    if (child_pid > 0) {  // если мы находимся в родительском процессе
+        killpg(child_pid, SIGSTOP);  // останавливаем группу процессов
+        std::cout << "\nПроцесс с pid " << child_pid << " приостановлен. Продожить процесс можно из другой сессии\n";
+
+    } else {
+        std::cout << "\nНельзя приостановить терминал\n";
+    }
+
+    return;
 }
 
 std::string separate_input(std::string& input, std::vector<std::string>& params) {
@@ -59,8 +72,9 @@ void cat_handler(const std::vector<char*>& params) {
     char buff[512];
 
     if (params.size() == 2) {  // если нет параметров
-        while (fgets(buff, sizeof(buff), stdin)) {  // Читаем построчно
-            std::cout << buff;  // Выводим строку
+        std::string line;
+        while (std::getline(std::cin, line)) {
+            std::cout << line << std::endl;
         }
     } 
 
@@ -243,6 +257,39 @@ void killall_handler(const std::vector<char*>& params) {
     exit(0);
 }
 
+void fg_handler(const std::vector<char*>& params) {
+    if (params.size() == 2) {  // если нет параметров
+        std::cout << "Недостаточно параметров для команды fg" << std::endl;
+        exit(1);
+    }
+
+    size_t pid = std::stoi(params[1]);
+    std::string path = "/proc/" + std::to_string(pid) + "/stat";
+    std::ifstream stat_file(path);
+
+    if (!stat_file.is_open()) {
+        std::cerr << "Не удалось открыть файл для процесса с pid " << pid << std::endl;
+        exit(1);
+    }
+
+    std::string status;
+    // Читаем первое поле (PID), пропускаем остальные до состояния (field 3)
+    for (int i = 0; i < 2; ++i) {
+        stat_file >> status;
+    }
+
+    stat_file >> status;  // Состояние процесса
+    stat_file.close();
+
+    // Проверяем, спит ли процесс
+    if (status == "T") {
+        std::cout << "Процесс с pid " << pid << " продолжил выполнение\n";
+        killpg(pid, SIGCONT);
+    }
+
+    exit(0);
+}
+
 void start_process(const std::string& command, const std::vector<char*>& params) {
     child_pid = fork();  // создаем дочерний процесс
 
@@ -268,6 +315,10 @@ void start_process(const std::string& command, const std::vector<char*>& params)
         
         else if (command == "killall") {
             killall_handler(params);
+        }
+
+        else if (command == "fg"){
+            fg_handler(params);
         }
 
         else {

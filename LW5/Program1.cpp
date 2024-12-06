@@ -10,12 +10,11 @@ sem_t limit_sem;
 
 std::mutex output_mutex;  // для синхронизации вывода
 
-const size_t LIMIT_THREADS = 20;  // всего 20 потоков
-const size_t BOOKING_THREADS = 3;  // 3 потока бронирования
-
-bool start_thread = false;
+const size_t LIMIT_THREADS = 20;  // всего потоков
+const size_t BOOKING_THREADS = 3;  // кол-во потоков бронирования
 
 void get_info(size_t id) {
+    // в фигурных скобках автоматически освобождается мьютекс
     {
         std::lock_guard<std::mutex> lock(output_mutex);
         std::cout << "Поток с id " << id << " ждет доступа для получения справки\n";
@@ -71,13 +70,19 @@ int main() {
 
     // создаем потоки справок 
     for (size_t i = 0; i < LIMIT_THREADS - BOOKING_THREADS; i++) {
-        std::cout << "Создан поток справок с id " << i << std::endl; 
+        {
+            std::lock_guard<std::mutex> lock(output_mutex);
+            std::cout << "Создан справочный поток с id " << i << std::endl; 
+        }
         threads.emplace_back(get_info, i);
     }
 
     // создаем потоки бронирования
     for (size_t i = LIMIT_THREADS - BOOKING_THREADS; i < LIMIT_THREADS; i++) {
-        std::cout << "Создан поток бронирования с id " << i << std::endl; 
+        {
+            std::lock_guard<std::mutex> lock(output_mutex);
+            std::cout << "Создан поток бронирования с id " << i << std::endl; 
+        }
         threads.emplace_back(book_seat, i);
     }
 

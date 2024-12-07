@@ -1,0 +1,12 @@
+# Этот файл должен находиться по пути /etc/systemd/system/
+[Unit]
+Description=File Service via D-Bus
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /path/to/python_service.py
+Restart=on-failure
+User=root
+
+[Install]
+WantedBy=default.target

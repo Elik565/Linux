@@ -30,12 +30,28 @@ void open_file_with_dbus(const std::string& file_path, const std::string& extens
         exit(1);
     }
 
+    // формируем сообщение
     DBusMessage* msg = dbus_message_new_method_call(
-        "org.freedesktop.FileService", // имя сервиса
-        "/org/freedesktop/FileService", // объект
+        "org.freedesktop.FileService",  // имя сервиса
+        "/org/freedesktop/FileService",  // объект
         "org.freedesktop.FileService",  // интерфейс
         "OpenFile"  // метод
     );
+
+    // добавление аргументов к сообщению
+    dbus_message_append_args(msg, DBUS_TYPE_STRING, &file_path, 
+                             DBUS_TYPE_STRING, &extension,
+                             DBUS_TYPE_INVALID);
+
+    // отправка сообщения dbus
+    DBusMessage* reply = dbus_connection_send_with_reply_and_block(conn, msg, -1, &err);
+    
+    if (reply) {
+        dbus_message_unref(reply);
+    }
+
+    dbus_message_unref(msg);
+    dbus_connection_unref(conn);
 }
 
 int main(int argc, char* argv[]) {

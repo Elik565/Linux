@@ -1,0 +1,14 @@
+# Этот файл должен находиться по пути /etc/systemd/system/
+[Unit]
+Description=Open file with DBus
+After=dbus.service
+
+[Service]
+User=elik565
+ExecStart=/home/elik565/LW6/Server
+Restart=on-failure
+Environment=DISPLAY=:0
+WorkingDirectory=/home/elik565/LW6/
+
+[Install]
+WantedBy=default.target

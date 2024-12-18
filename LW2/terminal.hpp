@@ -8,8 +8,14 @@ extern pid_t child_pid;
 // Отделение команды от параметров
 std::string separate_input(std::string& input, std::vector<std::string>& params);
 
-// Обработчик прерывания
+// Обработчик сигнала прерывания
 void handle_sigint(int sig);
+
+// Обработчик сигнала приостановки процесса
+void handle_sigtstp(int sig);
+
+// Обработчик сигнала возобновления процесса
+void handle_sigcont(int sig);
 
 // Обработчик команды cat
 void cat_handler(const std::vector<char*>& params);
